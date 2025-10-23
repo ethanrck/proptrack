@@ -430,7 +430,7 @@ export default async function handler(req, res) {
           
           // Schedule new update
           const scheduleId = await qstash.schedules.create({
-            destination: `https://nhl-player-tracker.vercel.app/api/update-data`,
+            destination: `https://proptrack-rho.vercel.app/api/update-data`,
             cron: `${oneHourBefore.getUTCMinutes()} ${oneHourBefore.getUTCHours()} ${oneHourBefore.getUTCDate()} ${oneHourBefore.getUTCMonth() + 1} *`,
             headers: {
               "Authorization": `Bearer ${process.env.CRON_SECRET}`
