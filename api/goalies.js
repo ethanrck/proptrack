@@ -1,4 +1,4 @@
-// api/goalies.js - Get filtered and processed goalie data
+// api/goalies.js - UPDATED VERSION with next opponent support
 import { list } from '@vercel/blob';
 
 export default async function handler(req, res) {
@@ -18,17 +18,15 @@ export default async function handler(req, res) {
       sortBy = 'trend'
     } = req.query;
 
-    // Fetch cached data
     const { blobs } = await list({ prefix: 'nhl-cache.json' });
     if (blobs.length === 0) throw new Error('No cache found');
 
     const blobResponse = await fetch(`${blobs[0].url}?t=${Date.now()}`);
     const cacheData = await blobResponse.json();
 
-    const { allGoalies, goalieGameLogs, teamShotData, bettingOdds } = cacheData;
+    const { allGoalies, goalieGameLogs, teamShotData, bettingOdds, teamSchedules } = cacheData;
     const favoritesArray = favorites ? favorites.split(',').map(id => parseInt(id)) : [];
 
-    // Process each goalie
     const processedGoalies = allGoalies
       .filter(goalie => {
         if (goalie.gamesPlayed < parseInt(minGames)) return false;
@@ -44,11 +42,12 @@ export default async function handler(req, res) {
         const goalieGameLog = goalieGameLogs[goalie.playerId];
         const games = goalieGameLog?.gameLog || [];
         
-        // Calculate goalie-specific stats
         const { hitRate, trend, last5Rate, last10Rate } = calculateGoalieStats(games, stat);
 
-        // Get betting lines if available
         const bettingLine = bettingOdds[goalie.playerId];
+
+        // Get next opponent from team schedule
+        const nextOpponent = getNextOpponent(goalie.teamAbbrevs, teamSchedules, teamShotData);
 
         return {
           playerId: goalie.playerId,
@@ -69,6 +68,7 @@ export default async function handler(req, res) {
           last5Rate,
           last10Rate,
           bettingLine,
+          nextOpponent,
           recentGames: games.slice(0, 5).map(g => ({
             date: g.gameDate,
             opponent: g.opponentAbbrev,
@@ -81,7 +81,6 @@ export default async function handler(req, res) {
         };
       });
 
-    // Sort goalies
     const sortedGoalies = sortGoalies(processedGoalies, sortBy, stat);
 
     res.setHeader('Cache-Control', 'public, max-age=300');
@@ -110,13 +109,11 @@ function calculateGoalieStats(games, statType) {
     return { hitRate: 0, trend: 0, last5Rate: 0, last10Rate: 0 };
   }
 
-  // Calculate saves for each game
   const gamesWithSaves = games.map(g => ({
     ...g,
     saves: (g.shotsAgainst || 0) - (g.goalsAgainst || 0)
   }));
 
-  // Get stat values based on type
   const statValues = gamesWithSaves.map(g => {
     switch (statType) {
       case 'saves': return g.saves;
@@ -128,7 +125,6 @@ function calculateGoalieStats(games, statType) {
 
   const median = calculateMedian(statValues);
 
-  // Calculate hit rates
   const overMedianCount = gamesWithSaves.filter(g => {
     const value = statType === 'savePct' ? g.savePct : 
                   statType === 'shotsAgainst' ? g.shotsAgainst : 
@@ -138,7 +134,6 @@ function calculateGoalieStats(games, statType) {
   
   const hitRate = (overMedianCount / gamesWithSaves.length) * 100;
 
-  // Calculate trend
   const last5Games = gamesWithSaves.slice(0, 5);
   const prev5Games = gamesWithSaves.slice(5, 10);
   
@@ -147,7 +142,6 @@ function calculateGoalieStats(games, statType) {
 
   const trend = prev5Avg > 0 ? ((last5Avg - prev5Avg) / prev5Avg) * 100 : 0;
 
-  // Calculate last 5 and last 10 hit rates
   const last5Rate = calculateHitRateForGames(last5Games, statType, median);
   const last10Games = gamesWithSaves.slice(0, 10);
   const last10Rate = calculateHitRateForGames(last10Games, statType, median);
@@ -189,6 +183,19 @@ function calculateMedian(arr) {
   if (arr.length === 0) return 0;
   const mid = Math.floor(arr.length / 2);
   return arr.length % 2 === 0 ? (arr[mid - 1] + arr[mid]) / 2 : arr[mid];
+}
+
+function getNextOpponent(goalieTeamAbbrev, teamSchedules, teamShotData) {
+  if (!teamSchedules || !goalieTeamAbbrev) return null;
+  
+  // Handle cases where goalie might be on multiple teams (traded)
+  const teams = goalieTeamAbbrev.split('/');
+  const currentTeam = teams[teams.length - 1].trim();
+  
+  const schedule = teamSchedules[currentTeam];
+  if (!schedule || !schedule.nextOpponent) return null;
+  
+  return schedule.nextOpponent;
 }
 
 function sortGoalies(goalies, sortBy, stat) {
