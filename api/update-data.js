@@ -6,8 +6,14 @@ import { put } from '@vercel/blob';
 import { Client } from '@upstash/qstash';
 
 export default async function handler(req, res) {
+  // Accept secret via Authorization header OR URL parameter
   const authHeader = req.headers.authorization;
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secretParam = req.query.secret;
+  
+  // Extract secret from either source
+  const providedSecret = authHeader?.replace('Bearer ', '') || secretParam;
+  
+  if (providedSecret !== process.env.CRON_SECRET) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
