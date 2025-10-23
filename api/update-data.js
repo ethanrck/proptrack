@@ -94,7 +94,122 @@ export default async function handler(req, res) {
     });
 
     console.log(`Loaded stats for ${teamShotData.length} teams (${Date.now() - startTime}ms)`);
+// api/update-data-enhanced.js - Enhanced version with team schedule data
+// ADD THIS SECTION after Step 3 (team stats) and before Step 4 (betting odds)
 
+// Step 3.5: Fetch team schedules for "next opponent" feature
+console.log('Fetching team schedules...');
+let teamSchedules = {};
+
+try {
+  // Get current date
+  const now = new Date();
+  const nowString = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+  
+  // Fetch schedule for each team
+  const schedulePromises = teamShotData.map(async team => {
+    try {
+      // NHL API endpoint for team schedule
+      // We need to map team names to team abbreviations/IDs
+      const teamAbbrev = team.abbrev.toUpperCase();
+      
+      // Fetch team schedule - this endpoint returns upcoming games
+      const scheduleUrl = `https://api-web.nhle.com/v1/schedule/${nowString}`;
+      const scheduleResponse = await fetch(scheduleUrl);
+      
+      if (!scheduleResponse.ok) {
+        return null;
+      }
+      
+      const scheduleData = await scheduleResponse.json();
+      
+      // Find games for this team in the schedule
+      const teamGames = [];
+      
+      if (scheduleData.gameWeek) {
+        scheduleData.gameWeek.forEach(day => {
+          if (day.games) {
+            day.games.forEach(game => {
+              const homeTeam = game.homeTeam?.abbrev;
+              const awayTeam = game.awayTeam?.abbrev;
+              
+              if (homeTeam === teamAbbrev || awayTeam === teamAbbrev) {
+                const isHome = homeTeam === teamAbbrev;
+                const opponent = isHome ? game.awayTeam : game.homeTeam;
+                
+                teamGames.push({
+                  gameId: game.id,
+                  date: game.startTimeUTC,
+                  opponent: opponent.placeName?.default + ' ' + opponent.commonName?.default,
+                  opponentAbbrev: opponent.abbrev,
+                  isHome
+                });
+              }
+            });
+          }
+        });
+      }
+      
+      // Sort by date and get next game
+      teamGames.sort((a, b) => new Date(a.date) - new Date(b.date));
+      const nextGame = teamGames.find(game => new Date(game.date) > now);
+      
+      if (nextGame) {
+        return {
+          teamAbbrev: teamAbbrev,
+          teamName: team.teamFullName,
+          nextOpponent: nextGame.opponent,
+          nextOpponentAbbrev: nextGame.opponentAbbrev,
+          nextGameDate: nextGame.date,
+          nextGameIsHome: nextGame.isHome
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`Error fetching schedule for ${team.abbrev}:`, error.message);
+      return null;
+    }
+  });
+  
+  const scheduleResults = await Promise.allSettled(schedulePromises);
+  
+  scheduleResults.forEach(result => {
+    if (result.status === 'fulfilled' && result.value) {
+      teamSchedules[result.value.teamAbbrev] = result.value;
+    }
+  });
+  
+  console.log(`✅ Loaded schedules for ${Object.keys(teamSchedules).length} teams (${Date.now() - startTime}ms)`);
+} catch (error) {
+  console.error('Error fetching team schedules:', error);
+  teamSchedules = {}; // Continue without schedule data
+}
+
+// Then in Step 8, add teamSchedules to cacheData:
+const cacheData = {
+  lastUpdated: new Date().toISOString(),
+  nextGameTime,
+  season,
+  allPlayers: playersWithGames,
+  allGoalies: goaliesWithGames,
+  gameLogs: gameLogsData,
+  goalieGameLogs: goalieGameLogsData,
+  teamShotData: teamShotData,
+  teamSchedules: teamSchedules,  // ADD THIS LINE
+  bettingOdds,
+  stats: {
+    totalPlayers: playersWithGames.length,
+    totalGoalies: goaliesWithGames.length,
+    gameLogsLoaded: successCount,
+    goalieLogsLoaded: goalieSuccessCount,
+    errors: errorCount + goalieErrorCount,
+    bettingLinesLoaded: Object.keys(bettingOdds).length,
+    teamSchedulesLoaded: Object.keys(teamSchedules).length,  // ADD THIS LINE
+    oddsError,
+    oddsCredits: oddsCreditsUsed
+  }
+};
     // Step 4: Fetch betting odds (TODAY'S GAMES ONLY) - OPTIMIZED VERSION
     console.log('Fetching betting odds...');
     let bettingOdds = {};
