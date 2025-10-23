@@ -168,6 +168,11 @@
             cursor: pointer;
         }
         
+        select option {
+            background: var(--container-bg);
+            color: var(--text-primary);
+        }
+        
         input[type="checkbox"] {
             width: 20px;
             height: 20px;
@@ -220,68 +225,130 @@
         
         .player-card:hover {
             border-color: var(--card-hover-border);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
         }
         
-        .player-name {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: var(--text-primary);
-            margin-bottom: 8px;
-            transition: color 0.3s ease;
-        }
-        
-        .player-team {
-            color: var(--text-secondary);
-            font-size: 0.9em;
-            margin-bottom: 15px;
-            transition: color 0.3s ease;
-        }
-        
-        .stat-row {
+        .player-header {
             display: flex;
             justify-content: space-between;
+            align-items: start;
+            margin-bottom: 15px;
+        }
+        
+        .player-info h3 {
+            color: var(--text-primary);
+            font-size: 1.2em;
+            margin-bottom: 5px;
+        }
+        
+        .player-meta {
+            color: var(--text-secondary);
+            font-size: 0.9em;
+        }
+        
+        .favorite-star {
+            font-size: 24px;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s;
+        }
+        
+        .favorite-star:hover {
+            transform: scale(1.2);
+        }
+        
+        .stat-highlight {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--button-active-bg);
+            margin: 15px 0;
+        }
+        
+        .hit-rate-section {
+            margin: 15px 0;
+        }
+        
+        .hit-rate-bar-container {
+            background: var(--input-border);
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
             margin: 8px 0;
-            padding: 8px;
-            background: var(--container-bg);
-            border-radius: 6px;
-            transition: all 0.3s ease;
+        }
+        
+        .hit-rate-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--button-active-bg), var(--card-hover-border));
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.85em;
         }
         
         .trend-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.85em;
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
             font-weight: 600;
+            margin-left: 8px;
         }
         
-        .trend-hot {
+        .trend-up {
             background: var(--success-bg);
             color: var(--success-text);
         }
         
-        .trend-cold {
+        .trend-down {
             background: var(--error-bg);
             color: var(--error-text);
         }
         
         .trend-neutral {
-            background: var(--card-bg);
-            color: var(--text-secondary);
+            background: var(--warning-bg);
+            color: var(--warning-text);
         }
         
-        .loading {
+        .betting-line {
+            background: var(--warning-bg);
+            color: var(--warning-text);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: 600;
             text-align: center;
-            padding: 40px;
-            color: var(--text-primary);
-            font-size: 1.2em;
         }
         
-        /* Modal Styles */
+        .opponent-analysis {
+            background: var(--card-bg);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+        
+        .recent-games {
+            margin-top: 15px;
+            font-size: 0.85em;
+        }
+        
+        .recent-games-header {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+        
+        .game-result {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid var(--input-border);
+        }
+        
         .modal {
             display: none;
             position: fixed;
@@ -290,27 +357,25 @@
             top: 0;
             width: 100%;
             height: 100%;
-            overflow: auto;
             background-color: var(--modal-overlay);
         }
         
         .modal-content {
             background-color: var(--container-bg);
-            margin: 50px auto;
+            margin: 5% auto;
             padding: 30px;
             border-radius: 15px;
             width: 90%;
-            max-width: 1000px;
+            max-width: 900px;
             max-height: 85vh;
             overflow-y: auto;
             box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-            transition: all 0.3s ease;
         }
         
         .close {
             color: var(--text-secondary);
             float: right;
-            font-size: 32px;
+            font-size: 35px;
             font-weight: bold;
             cursor: pointer;
             transition: color 0.3s;
@@ -323,159 +388,82 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin: 20px 0;
+            background: var(--container-bg);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        thead {
+            background: var(--table-header-bg);
+            color: white;
         }
         
         th, td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid var(--table-border);
-            transition: all 0.3s ease;
         }
         
-        th {
-            background: var(--table-header-bg);
-            color: white;
-            font-weight: 600;
-            position: sticky;
-            top: 0;
-        }
-        
-        tr:hover {
+        tbody tr:hover {
             background: var(--card-bg);
         }
         
-        .hit-cell {
-            background: var(--hit-bg);
-            color: var(--success-text);
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 1.2em;
+            color: var(--text-secondary);
+        }
+        
+        .error {
+            background: var(--error-bg);
+            color: var(--error-text);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .hit-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
             font-weight: 600;
         }
         
-        .miss-cell {
+        .hit {
+            background: var(--hit-bg);
+            color: var(--success-text);
+        }
+        
+        .miss {
             background: var(--miss-bg);
             color: var(--error-text);
         }
         
-        /* Watchlist Styles */
-        .watchlist-container {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 350px;
-            max-height: 500px;
-            background: var(--container-bg);
-            border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            overflow: hidden;
-            transition: all 0.3s ease;
-            z-index: 999;
-        }
-        
-        .watchlist-container.minimized {
-            max-height: 50px;
-        }
-        
-        .watchlist-header {
-            background: var(--table-header-bg);
-            color: white;
-            padding: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-        }
-        
-        .watchlist-content {
-            padding: 15px;
-            max-height: 430px;
-            overflow-y: auto;
-        }
-        
-        .watchlist-container.minimized .watchlist-content {
-            display: none;
-        }
-        
-        .watchlist-item {
-            background: var(--card-bg);
-            padding: 12px;
-            margin-bottom: 8px;
-            border-radius: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            transition: all 0.3s;
-            border: 2px solid transparent;
-        }
-        
-        .watchlist-item:hover {
-            border-color: var(--card-hover-border);
-        }
-        
-        .watchlist-item.selected {
-            border-color: var(--button-active-bg);
-            background: var(--button-active-bg);
-            color: var(--button-active-text);
-        }
-        
-        .watchlist-item-remove {
-            background: var(--error-bg);
-            color: var(--error-text);
-            border: none;
-            padding: 4px 8px;
+        .rank-badge {
+            display: inline-block;
+            padding: 4px 10px;
             border-radius: 4px;
-            cursor: pointer;
+            font-weight: 600;
             font-size: 0.9em;
+            margin-left: 8px;
         }
         
-        .watchlist-empty {
-            text-align: center;
-            color: var(--text-secondary);
-            padding: 20px;
-            font-style: italic;
+        .rank-easy {
+            background: #27ae60;
+            color: white;
         }
         
-        .parlay-calculator {
-            background: var(--success-bg);
-            color: var(--success-text);
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 10px;
+        .rank-medium {
+            background: #f39c12;
+            color: white;
         }
         
-        .parlay-odds {
-            font-size: 1.5em;
-            font-weight: bold;
-            margin: 10px 0;
-        }
-        
-        .betting-line {
-            background: var(--warning-bg);
-            color: var(--warning-text);
-            padding: 8px;
-            border-radius: 6px;
-            margin-top: 10px;
-            font-size: 0.9em;
-        }
-        
-        .favorite-star {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            font-size: 1.5em;
-            cursor: pointer;
-            opacity: 0.3;
-            transition: all 0.3s;
-        }
-        
-        .favorite-star.active {
-            opacity: 1;
-            color: gold;
-        }
-        
-        .favorite-star:hover {
-            opacity: 1;
-            transform: scale(1.2);
+        .rank-hard {
+            background: #e74c3c;
+            color: white;
         }
     </style>
 </head>
@@ -483,40 +471,59 @@
     <div class="container">
         <div class="header-row">
             <h1>🏒 DangleData</h1>
-            <button class="dark-mode-toggle" onclick="toggleDarkMode()">🌙 Dark Mode</button>
+            <button class="dark-mode-toggle" onclick="toggleDarkMode()">🌙 Toggle Dark Mode</button>
         </div>
         
-        <p class="subtitle">NHL Player Line Tracker - Protected Backend Edition</p>
+        <p class="subtitle">NHL Player Line Tracker - Find the best betting opportunities</p>
         
-        <div id="apiStatus" class="api-status" style="display:none"></div>
+        <div id="statusMessage" class="api-status" style="display:none;"></div>
         
         <div class="controls">
             <div class="control-group">
                 <label>
-                    <input type="checkbox" id="goalieMode" onchange="toggleGoalieMode()">
-                    Goalie Mode
+                    <input type="checkbox" id="showGoalies" onchange="toggleGoalies()">
+                    Show Goalies
                 </label>
             </div>
             
             <div class="control-group">
-                <label>Min Games:</label>
-                <input type="number" id="minGames" value="5" min="1" max="50" style="width: 80px;" onchange="loadData()">
+                <label for="statType">Stat:</label>
+                <select id="statType" onchange="updateStatType()">
+                    <option value="points">Points</option>
+                    <option value="goals">Goals</option>
+                    <option value="assists">Assists</option>
+                    <option value="shots">Shots</option>
+                    <option value="saves" id="savesOption" style="display:none;">Saves</option>
+                    <option value="savePct" id="savePctOption" style="display:none;">Save %</option>
+                </select>
             </div>
             
             <div class="control-group">
-                <label>Search:</label>
-                <input type="text" id="searchPlayer" placeholder="Player name..." oninput="loadData()">
+                <label for="minGames">Min Games:</label>
+                <select id="minGames" onchange="loadData()">
+                    <option value="0">0</option>
+                    <option value="5" selected>5</option>
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                </select>
             </div>
             
             <div class="control-group">
-                <label>Sort By:</label>
+                <label for="sortBy">Sort By:</label>
                 <select id="sortBy" onchange="loadData()">
                     <option value="trend">Trend</option>
                     <option value="hitRate">Hit Rate</option>
-                    <option value="last5">Last 5 Games</option>
-                    <option value="stat">Season Stats</option>
+                    <option value="last5">Last 5</option>
+                    <option value="stat">Season Stat</option>
                     <option value="name">Name</option>
                 </select>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="hideZeros" onchange="loadData()">
+                    Hide Zero Games
+                </label>
             </div>
             
             <div class="control-group">
@@ -525,30 +532,13 @@
                     Favorites Only
                 </label>
             </div>
+            
+            <div class="control-group">
+                <input type="text" id="searchName" placeholder="Search player..." onkeyup="loadData()">
+            </div>
         </div>
         
-        <div class="stat-buttons" id="statButtons">
-            <button class="stat-button active" onclick="selectStat('points')">Points</button>
-            <button class="stat-button" onclick="selectStat('goals')">Goals</button>
-            <button class="stat-button" onclick="selectStat('assists')">Assists</button>
-            <button class="stat-button" onclick="selectStat('shots')">Shots</button>
-        </div>
-        
-        <div id="playersContainer">
-            <div class="loading">Loading players...</div>
-        </div>
-    </div>
-    
-    <!-- Watchlist -->
-    <div id="watchlistContainer" class="watchlist-container">
-        <div class="watchlist-header" onclick="toggleWatchlist()">
-            <div>⭐ Watchlist <span id="watchlistCount">(0)</span></div>
-            <div>▼</div>
-        </div>
-        <div class="watchlist-content">
-            <div id="watchlistItems"></div>
-            <div id="parlayCalculator"></div>
-        </div>
+        <div id="playersContainer" class="loading">Loading player data...</div>
     </div>
     
     <!-- Game Log Modal -->
@@ -558,239 +548,335 @@
             <div id="modalBody"></div>
         </div>
     </div>
-
+    
     <script>
-        // Configuration
-        const API_BASE = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-        
-        let currentStat = 'points';
+        // Global state
+        let currentStatType = 'points';
         let isGoalieMode = false;
-        let watchlist = [];
-        let selectedParlayPlayers = [];
-        let lastUpdated = null;
+        let cachedData = null;
+        let teamShotData = [];
         
-        // Load preferences
+        // Load preferences from localStorage
         function loadPreferences() {
-            // Load dark mode
-            const darkMode = localStorage.getItem('darkMode') === 'true';
-            if (darkMode) {
+            const darkMode = localStorage.getItem('darkMode');
+            if (darkMode === 'true') {
                 document.body.classList.add('dark-mode');
-                document.querySelector('.dark-mode-toggle').textContent = '☀️ Light Mode';
-            }
-            
-            // Load watchlist
-            const saved = localStorage.getItem('nhlWatchlist');
-            if (saved) {
-                try {
-                    watchlist = JSON.parse(saved);
-                    updateWatchlistDisplay();
-                } catch (e) {
-                    watchlist = [];
-                }
-            }
-            
-            // Load minimized state
-            const isMinimized = localStorage.getItem('watchlistMinimized') === 'true';
-            if (isMinimized) {
-                document.getElementById('watchlistContainer').classList.add('minimized');
             }
         }
         
         // Toggle dark mode
         function toggleDarkMode() {
             document.body.classList.toggle('dark-mode');
-            const isDark = document.body.classList.contains('dark-mode');
-            localStorage.setItem('darkMode', isDark);
-            
-            const btn = document.querySelector('.dark-mode-toggle');
-            btn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+            localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
         }
         
-        // Toggle goalie mode
-        function toggleGoalieMode() {
-            isGoalieMode = document.getElementById('goalieMode').checked;
+        // Toggle between skaters and goalies
+        function toggleGoalies() {
+            isGoalieMode = document.getElementById('showGoalies').checked;
             
-            // Update stat buttons
-            const buttons = document.getElementById('statButtons');
+            // Show/hide goalie-specific stat options
+            const savesOption = document.getElementById('savesOption');
+            const savePctOption = document.getElementById('savePctOption');
+            const statSelect = document.getElementById('statType');
+            
             if (isGoalieMode) {
-                buttons.innerHTML = `
-                    <button class="stat-button active" onclick="selectStat('saves')">Saves</button>
-                    <button class="stat-button" onclick="selectStat('savePct')">Save %</button>
-                    <button class="stat-button" onclick="selectStat('shotsAgainst')">Shots Against</button>
-                `;
-                currentStat = 'saves';
+                savesOption.style.display = '';
+                savePctOption.style.display = '';
+                statSelect.value = 'saves';
+                currentStatType = 'saves';
             } else {
-                buttons.innerHTML = `
-                    <button class="stat-button active" onclick="selectStat('points')">Points</button>
-                    <button class="stat-button" onclick="selectStat('goals')">Goals</button>
-                    <button class="stat-button" onclick="selectStat('assists')">Assists</button>
-                    <button class="stat-button" onclick="selectStat('shots')">Shots</button>
-                `;
-                currentStat = 'points';
+                savesOption.style.display = 'none';
+                savePctOption.style.display = 'none';
+                statSelect.value = 'points';
+                currentStatType = 'points';
             }
             
             loadData();
         }
         
-        // Select stat
-        function selectStat(stat) {
-            currentStat = stat;
-            document.querySelectorAll('.stat-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            event.target.classList.add('active');
+        // Update stat type
+        function updateStatType() {
+            currentStatType = document.getElementById('statType').value;
             loadData();
         }
         
-        // Load data from backend API
+        // Get favorites from localStorage
+        function getFavorites() {
+            const saved = localStorage.getItem('nhlFavorites');
+            return saved ? JSON.parse(saved) : [];
+        }
+        
+        // Save favorites
+        function saveFavorites(favorites) {
+            localStorage.setItem('nhlFavorites', JSON.stringify(favorites));
+        }
+        
+        // Toggle favorite
+        function toggleFavorite(playerId, event) {
+            event.stopPropagation();
+            let favorites = getFavorites();
+            if (favorites.includes(playerId)) {
+                favorites = favorites.filter(id => id !== playerId);
+            } else {
+                favorites.push(playerId);
+            }
+            saveFavorites(favorites);
+            loadData();
+        }
+        
+        // Load data from backend
         async function loadData() {
             const container = document.getElementById('playersContainer');
             container.innerHTML = '<div class="loading">Loading...</div>';
             
-            const minGames = document.getElementById('minGames').value;
-            const searchName = document.getElementById('searchPlayer').value;
-            const sortBy = document.getElementById('sortBy').value;
-            const favoritesOnly = document.getElementById('favoritesOnly').checked;
-            
             try {
-                const endpoint = isGoalieMode ? '/api/goalies' : '/api/players';
-                const params = new URLSearchParams({
-                    stat: currentStat,
-                    minGames: minGames,
-                    searchName: searchName,
-                    sortBy: sortBy
-                });
+                const minGames = document.getElementById('minGames').value;
+                const searchName = document.getElementById('searchName').value;
+                const hideZeros = document.getElementById('hideZeros').checked;
+                const favoritesOnly = document.getElementById('favoritesOnly').checked;
+                const sortBy = document.getElementById('sortBy').value;
+                const favorites = getFavorites();
                 
-                // Add favorites filter if enabled
-                if (favoritesOnly) {
-                    const favorites = getFavorites();
-                    if (favorites.length === 0) {
-                        container.innerHTML = '<div class="loading">No favorites added yet. Click stars on player cards to add favorites!</div>';
-                        return;
-                    }
-                    params.append('favorites', favorites.join(','));
+                let endpoint, params;
+                
+                if (isGoalieMode) {
+                    endpoint = '/api/goalies';
+                    params = new URLSearchParams({
+                        stat: currentStatType,
+                        minGames,
+                        searchName,
+                        sortBy,
+                        favorites: favorites.join(',')
+                    });
+                } else {
+                    endpoint = '/api/players';
+                    params = new URLSearchParams({
+                        stat: currentStatType,
+                        minGames,
+                        searchName,
+                        hideZeros: hideZeros.toString(),
+                        sortBy,
+                        favorites: favorites.join(',')
+                    });
                 }
                 
-                const response = await fetch(`${API_BASE}${endpoint}?${params}`);
+                const response = await fetch(`${endpoint}?${params}`);
                 
                 if (!response.ok) {
-                    throw new Error(`API error: ${response.status}`);
+                    throw new Error(`Failed to load data: ${response.status}`);
                 }
                 
                 const data = await response.json();
-                lastUpdated = data.meta.lastUpdated;
                 
-                const players = isGoalieMode ? data.goalies : data.players;
+                // Get cached data for team shot info
+                const cacheResponse = await fetch('/api/get-data');
+                cachedData = await cacheResponse.json();
+                teamShotData = cachedData.teamShotData || [];
                 
-                if (players.length === 0) {
-                    container.innerHTML = '<div class="loading">No players found matching your criteria.</div>';
-                    return;
+                // Filter favorites if needed
+                let playersToDisplay = isGoalieMode ? data.goalies : data.players;
+                if (favoritesOnly) {
+                    playersToDisplay = playersToDisplay.filter(p => favorites.includes(p.playerId));
                 }
                 
-                displayPlayers(players);
-                
-                // Update API status
-                const statusEl = document.getElementById('apiStatus');
-                statusEl.textContent = `✅ Loaded ${players.length} ${isGoalieMode ? 'goalies' : 'players'} | Last updated: ${new Date(lastUpdated).toLocaleString()}`;
-                statusEl.style.display = 'block';
-                statusEl.style.background = 'var(--success-bg)';
-                statusEl.style.color = 'var(--success-text)';
+                displayPlayers(playersToDisplay, data.meta);
                 
             } catch (error) {
-                console.error('Error loading data:', error);
-                container.innerHTML = `<div class="loading" style="color: var(--error-text);">❌ Error loading data: ${error.message}</div>`;
-                
-                const statusEl = document.getElementById('apiStatus');
-                statusEl.textContent = `❌ Failed to load data. Make sure API endpoints are deployed to Vercel.`;
-                statusEl.style.display = 'block';
+                container.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
             }
         }
         
-        // Display players
-        function displayPlayers(players) {
+        // Display players/goalies
+        function displayPlayers(players, meta) {
             const container = document.getElementById('playersContainer');
+            const favorites = getFavorites();
+            
+            if (players.length === 0) {
+                container.innerHTML = '<div class="loading">No players found matching your criteria</div>';
+                return;
+            }
             
             const cardsHtml = players.map(player => {
-                const trendIcon = player.trend > 10 ? '📈' : player.trend < -10 ? '📉' : '➡️';
-                const trendClass = player.trend > 10 ? 'trend-hot' : player.trend < -10 ? 'trend-cold' : 'trend-neutral';
-                const isFavorite = isFavorited(player.playerId);
+                const isFavorited = favorites.includes(player.playerId);
+                const starIcon = isFavorited ? '⭐' : '☆';
                 
+                // Get trend indicator
+                const trendClass = player.trend > 10 ? 'trend-up' : player.trend < -10 ? 'trend-down' : 'trend-neutral';
+                const trendIcon = player.trend > 0 ? '📈' : player.trend < 0 ? '📉' : '➡️';
+                
+                // Get betting line if available
                 let bettingLineHtml = '';
                 if (player.bettingLine) {
-                    const odds = player.bettingLine.odds > 0 ? `+${player.bettingLine.odds}` : player.bettingLine.odds;
                     bettingLineHtml = `
                         <div class="betting-line">
-                            📊 Line: ${player.bettingLine.line} @ ${odds}
-                            ${player.bettingLine.game ? `<br><small>${player.bettingLine.game}</small>` : ''}
+                            🎯 Line: ${player.bettingLine.line} (${player.bettingLine.over > 0 ? '+' : ''}${player.bettingLine.over}/${player.bettingLine.under > 0 ? '+' : ''}${player.bettingLine.under})
                         </div>
                     `;
                 }
                 
-                let nextOpponentHtml = '';
-                if (player.nextOpponent) {
-                    nextOpponentHtml = `
-                        <div style="margin-top: 8px; font-size: 0.85em; color: var(--text-secondary);">
-                            🎯 Next: vs ${player.nextOpponent.team}
-                            ${player.nextOpponent.defensiveRank ? ` | Rank #${player.nextOpponent.defensiveRank}` : ''}
+                // Get next opponent analysis
+                let opponentHtml = '';
+                if (player.nextOpponent && teamShotData.length > 0) {
+                    const oppTeam = findOpponentTeam(player.nextOpponent);
+                    if (oppTeam) {
+                        const rankBadge = getRankBadge(oppTeam.defensiveRank, isGoalieMode);
+                        opponentHtml = `
+                            <div class="opponent-analysis">
+                                <strong>🎯 vs ${oppTeam.teamFullName.split(' ').pop()}</strong>
+                                ${rankBadge}
+                                <br>
+                                ${isGoalieMode ? 
+                                    `Allow ${oppTeam.shotsPerGame.toFixed(1)} shots/game` :
+                                    `Allow ${oppTeam.shotsAgainstPerGame.toFixed(1)} shots/game`
+                                }
+                            </div>
+                        `;
+                    }
+                }
+                
+                // Get season stat value
+                const statValue = isGoalieMode ? 
+                    (currentStatType === 'savePct' ? 
+                        (player.seasonStats.savePct * 100).toFixed(1) + '%' :
+                        player.seasonStats[currentStatType]) :
+                    player.seasonStats[currentStatType];
+                
+                // Recent games display
+                let recentGamesHtml = '';
+                if (player.recentGames && player.recentGames.length > 0) {
+                    const gamesDisplay = player.recentGames.slice(0, 3).map(game => {
+                        if (isGoalieMode) {
+                            return `
+                                <div class="game-result">
+                                    <span>vs ${game.opponent}</span>
+                                    <span>${game.saves} SV (${(game.savePct * 100).toFixed(1)}%)</span>
+                                </div>
+                            `;
+                        } else {
+                            return `
+                                <div class="game-result">
+                                    <span>vs ${game.opponent}</span>
+                                    <span>${game.goals}G ${game.assists}A ${game.shots}S</span>
+                                </div>
+                            `;
+                        }
+                    }).join('');
+                    
+                    recentGamesHtml = `
+                        <div class="recent-games">
+                            <div class="recent-games-header">Last 3 Games:</div>
+                            ${gamesDisplay}
                         </div>
                     `;
                 }
                 
                 return `
-                    <div class="player-card" onclick="showGameLog(${player.playerId})">
-                        <span class="favorite-star ${isFavorite ? 'active' : ''}" 
-                              onclick="event.stopPropagation(); toggleFavorite(${player.playerId})">⭐</span>
-                        
-                        <div class="player-name">${player.name}</div>
-                        <div class="player-team">${player.team} • ${player.position} • ${player.gamesPlayed} GP</div>
-                        
-                        <div class="stat-row">
-                            <span><strong>Hit Rate:</strong></span>
-                            <span>${player.hitRate}%</span>
+                    <div class="player-card" onclick="openGameLog(${player.playerId})">
+                        <div class="player-header">
+                            <div class="player-info">
+                                <h3>${player.name}</h3>
+                                <div class="player-meta">
+                                    ${player.team} • ${player.position} • ${player.gamesPlayed} GP
+                                </div>
+                            </div>
+                            <div class="favorite-star" onclick="toggleFavorite(${player.playerId}, event)">
+                                ${starIcon}
+                            </div>
                         </div>
                         
-                        <div class="stat-row">
-                            <span><strong>Trend:</strong></span>
-                            <span class="trend-indicator ${trendClass}">${trendIcon} ${Math.abs(player.trend)}%</span>
-                        </div>
-                        
-                        <div class="stat-row">
-                            <span><strong>Last 5:</strong></span>
-                            <span>${player.last5Rate}%</span>
-                        </div>
-                        
-                        <div class="stat-row">
-                            <span><strong>Last 10:</strong></span>
-                            <span>${player.last10Rate}%</span>
+                        <div class="stat-highlight">
+                            ${currentStatType.toUpperCase()}: ${statValue}
                         </div>
                         
                         ${bettingLineHtml}
-                        ${nextOpponentHtml}
                         
-                        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--table-border); font-size: 0.85em; color: var(--text-secondary);">
-                            ${isGoalieMode ? 
-                                `Season: ${(player.seasonStats.savePct * 100).toFixed(1)}% SV | ${player.seasonStats.goalsAgainstAverage.toFixed(2)} GAA` :
-                                `Season: ${player.seasonStats.goals}G ${player.seasonStats.assists}A ${player.seasonStats.points}P`
-                            }
+                        <div class="hit-rate-section">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <strong>Hit Rate: ${player.hitRate}%</strong>
+                                <span class="trend-indicator ${trendClass}">
+                                    ${trendIcon} ${player.trend > 0 ? '+' : ''}${player.trend}%
+                                </span>
+                            </div>
+                            <div class="hit-rate-bar-container">
+                                <div class="hit-rate-bar" style="width: ${player.hitRate}%">
+                                    ${player.hitRate > 20 ? player.hitRate + '%' : ''}
+                                </div>
+                            </div>
+                            <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">
+                                L5: ${player.last5Rate}% | L10: ${player.last10Rate}%
+                            </div>
                         </div>
+                        
+                        ${opponentHtml}
+                        ${recentGamesHtml}
                     </div>
                 `;
             }).join('');
             
             container.innerHTML = cardsHtml;
+            
+            // Update status message
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'api-status';
+            statusDiv.textContent = `Showing ${players.length} ${isGoalieMode ? 'goalies' : 'players'} • Last updated: ${new Date(meta.lastUpdated).toLocaleString()}`;
         }
         
-        // Show game log modal
-        async function showGameLog(playerId) {
+        // Find opponent team in shot data
+        function findOpponentTeam(opponentName) {
+            return teamShotData.find(t => 
+                t.teamFullName === opponentName ||
+                t.abbrev === opponentName ||
+                t.teamFullName.includes(opponentName) ||
+                opponentName.includes(t.teamFullName)
+            );
+        }
+        
+        // Get rank badge based on position
+        function getRankBadge(rank, isGoalie) {
+            let badgeClass, label;
+            
+            if (isGoalie) {
+                // For goalies: high rank (lots of shots) is harder
+                if (rank <= 10) {
+                    badgeClass = 'rank-hard';
+                    label = `#${rank}`;
+                } else if (rank <= 22) {
+                    badgeClass = 'rank-medium';
+                    label = `#${rank}`;
+                } else {
+                    badgeClass = 'rank-easy';
+                    label = `#${rank}`;
+                }
+            } else {
+                // For skaters: low rank (allows lots of shots) is easier
+                if (rank <= 10) {
+                    badgeClass = 'rank-easy';
+                    label = `#${rank}`;
+                } else if (rank <= 22) {
+                    badgeClass = 'rank-medium';
+                    label = `#${rank}`;
+                } else {
+                    badgeClass = 'rank-hard';
+                    label = `#${rank}`;
+                }
+            }
+            
+            return `<span class="rank-badge ${badgeClass}">${label}</span>`;
+        }
+        
+        // Open game log modal
+        async function openGameLog(playerId) {
             const modal = document.getElementById('gameLogModal');
             const modalBody = document.getElementById('modalBody');
             
-            modalBody.innerHTML = '<div class="loading">Loading player details...</div>';
             modal.style.display = 'block';
+            modalBody.innerHTML = '<div class="loading">Loading game log...</div>';
             
             try {
+                // Get player details with game log
                 const type = isGoalieMode ? 'goalie' : 'skater';
-                const response = await fetch(`${API_BASE}/api/player-details?playerId=${playerId}&type=${type}`);
+                const response = await fetch(`/api/player-details?playerId=${playerId}&type=${type}`);
                 
                 if (!response.ok) {
                     throw new Error(`Failed to load player details: ${response.status}`);
@@ -800,7 +886,7 @@
                 displayGameLog(data);
                 
             } catch (error) {
-                modalBody.innerHTML = `<div style="color: var(--error-text);">❌ Error: ${error.message}</div>`;
+                modalBody.innerHTML = `<div class="error">❌ Error: ${error.message}</div>`;
             }
         }
         
@@ -812,21 +898,25 @@
             const h2hStats = data.h2hStats;
             const opponentInfo = data.opponentInfo;
             
+            // H2H section
             let h2hHtml = '';
             if (h2hStats && h2hStats.gamesPlayed > 0) {
+                const stats = h2hStats.stats;
                 h2hHtml = `
                     <div style="background: var(--success-bg); color: var(--success-text); padding: 15px; border-radius: 8px; margin: 15px 0;">
                         <h3>📊 Head-to-Head Stats</h3>
                         <p><strong>Games Played:</strong> ${h2hStats.gamesPlayed}</p>
-                        ${h2hStats.stats.avgGoals ? `<p><strong>Avg Goals:</strong> ${h2hStats.stats.avgGoals}</p>` : ''}
-                        ${h2hStats.stats.avgAssists ? `<p><strong>Avg Assists:</strong> ${h2hStats.stats.avgAssists}</p>` : ''}
-                        ${h2hStats.stats.avgPoints ? `<p><strong>Avg Points:</strong> ${h2hStats.stats.avgPoints}</p>` : ''}
-                        ${h2hStats.stats.avgSaves ? `<p><strong>Avg Saves:</strong> ${h2hStats.stats.avgSaves}</p>` : ''}
+                        ${stats.avgGoals ? `<p><strong>Avg Goals:</strong> ${stats.avgGoals}</p>` : ''}
+                        ${stats.avgAssists ? `<p><strong>Avg Assists:</strong> ${stats.avgAssists}</p>` : ''}
+                        ${stats.avgPoints ? `<p><strong>Avg Points:</strong> ${stats.avgPoints}</p>` : ''}
+                        ${stats.avgSaves ? `<p><strong>Avg Saves:</strong> ${stats.avgSaves}</p>` : ''}
+                        ${stats.avgSavePct ? `<p><strong>Avg Save %:</strong> ${stats.avgSavePct}%</p>` : ''}
                         ${h2hStats.hitRate ? `<p><strong>Hit Rate:</strong> ${h2hStats.hitRate}%</p>` : ''}
                     </div>
                 `;
             }
             
+            // Opponent info section
             let opponentHtml = '';
             if (opponentInfo) {
                 opponentHtml = `
@@ -841,6 +931,7 @@
             
             const isGoalie = player.position === 'G';
             
+            // Season stats
             let seasonStatsHtml = '';
             if (isGoalie) {
                 seasonStatsHtml = `
@@ -859,17 +950,48 @@
                 `;
             }
             
+            // Badge legend
+            let badgeLegend = '';
+            if (isGoalie) {
+                badgeLegend = `
+                    <div style="background: var(--card-bg); padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 0.85em; color: var(--text-secondary);">
+                        <strong>Badge Colors:</strong> 
+                        <span class="rank-badge rank-hard">#1-10</span> High shot volume (more work) 
+                        <span class="rank-badge rank-medium">#11-22</span> Medium 
+                        <span class="rank-badge rank-easy">#23-32</span> Low shot volume (easier)
+                    </div>
+                `;
+            } else if (currentStatType === 'shots') {
+                badgeLegend = `
+                    <div style="background: var(--card-bg); padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 0.85em; color: var(--text-secondary);">
+                        <strong>Badge Colors:</strong> 
+                        <span class="rank-badge rank-easy">#1-10</span> Allow most shots (easier) 
+                        <span class="rank-badge rank-medium">#11-22</span> Medium 
+                        <span class="rank-badge rank-hard">#23-32</span> Allow fewest shots (harder)
+                    </div>
+                `;
+            }
+            
+            // Game rows
             const gameRows = games.slice(0, 20).map(game => {
                 const date = new Date(game.gameDate).toLocaleDateString();
+                
+                // Find opponent in team data for badge
+                const oppTeam = findOpponentTeam(game.opponent);
+                let oppBadge = '';
+                if (oppTeam) {
+                    oppBadge = getRankBadge(oppTeam.defensiveRank, isGoalie);
+                }
                 
                 if (isGoalie) {
                     return `
                         <tr>
                             <td>${date}</td>
-                            <td>${game.opponent}</td>
+                            <td>${game.opponent} ${oppBadge}</td>
                             <td>${game.decision || '-'}</td>
                             <td>${game.saves}</td>
                             <td>${game.shotsAgainst}</td>
+                            <td>${game.goalsAgainst}</td>
                             <td>${(game.savePct * 100).toFixed(1)}%</td>
                         </tr>
                     `;
@@ -877,7 +999,7 @@
                     return `
                         <tr>
                             <td>${date}</td>
-                            <td>${game.opponent}</td>
+                            <td>${game.opponent} ${oppBadge}</td>
                             <td>${game.goals}</td>
                             <td>${game.assists}</td>
                             <td>${game.points}</td>
@@ -902,6 +1024,7 @@
                 ${opponentHtml}
                 
                 <h3>Last ${Math.min(20, games.length)} Games</h3>
+                ${badgeLegend}
                 <table>
                     <thead>
                         <tr>
@@ -911,6 +1034,7 @@
                                 <th>Decision</th>
                                 <th>Saves</th>
                                 <th>SA</th>
+                                <th>GA</th>
                                 <th>SV%</th>
                             ` : `
                                 <th>G</th>
@@ -930,68 +1054,6 @@
         // Close modal
         function closeModal() {
             document.getElementById('gameLogModal').style.display = 'none';
-        }
-        
-        // Favorites management
-        function getFavorites() {
-            const saved = localStorage.getItem('nhlFavorites');
-            return saved ? JSON.parse(saved) : [];
-        }
-        
-        function saveFavorites(favorites) {
-            localStorage.setItem('nhlFavorites', JSON.stringify(favorites));
-        }
-        
-        function isFavorited(playerId) {
-            return getFavorites().includes(playerId);
-        }
-        
-        function toggleFavorite(playerId) {
-            let favorites = getFavorites();
-            if (favorites.includes(playerId)) {
-                favorites = favorites.filter(id => id !== playerId);
-            } else {
-                favorites.push(playerId);
-            }
-            saveFavorites(favorites);
-            loadData(); // Reload to update star display
-        }
-        
-        // Watchlist management
-        function toggleWatchlist() {
-            const container = document.getElementById('watchlistContainer');
-            container.classList.toggle('minimized');
-            localStorage.setItem('watchlistMinimized', container.classList.contains('minimized'));
-        }
-        
-        function updateWatchlistDisplay() {
-            const container = document.getElementById('watchlistItems');
-            const countSpan = document.getElementById('watchlistCount');
-            
-            countSpan.textContent = `(${watchlist.length})`;
-            
-            if (watchlist.length === 0) {
-                container.innerHTML = '<div class="watchlist-empty">⭐ Click stars to add players</div>';
-                return;
-            }
-            
-            const itemsHtml = watchlist.map(item => `
-                <div class="watchlist-item">
-                    <div>
-                        <div style="font-weight: 600;">${item.playerName}</div>
-                        <div style="font-size: 0.85em; color: var(--text-secondary);">${item.statType}</div>
-                    </div>
-                    <button class="watchlist-item-remove" onclick="removeFromWatchlist(${item.playerId})">✕</button>
-                </div>
-            `).join('');
-            
-            container.innerHTML = itemsHtml;
-        }
-        
-        function removeFromWatchlist(playerId) {
-            watchlist = watchlist.filter(item => item.playerId !== playerId);
-            localStorage.setItem('nhlWatchlist', JSON.stringify(watchlist));
-            updateWatchlistDisplay();
         }
         
         // Close modal when clicking outside
