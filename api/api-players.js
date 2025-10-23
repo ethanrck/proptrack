@@ -1,0 +1,230 @@
+// api/players.js - Get filtered and processed player data
+import { list } from '@vercel/blob';
+
+export default async function handler(req, res) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  try {
+    // Get query parameters
+    const {
+      stat = 'points',
+      minGames = '5',
+      searchName = '',
+      favorites = '',
+      hideZeros = 'false',
+      sortBy = 'trend'
+    } = req.query;
+
+    // Fetch cached data from Blob
+    const { blobs } = await list({ prefix: 'nhl-cache.json' });
+    if (blobs.length === 0) {
+      throw new Error('No cache found');
+    }
+
+    const blobResponse = await fetch(`${blobs[0].url}?t=${Date.now()}`);
+    const cacheData = await blobResponse.json();
+
+    const { allPlayers, gameLogs, teamShotData, bettingOdds } = cacheData;
+    
+    // Parse favorites array
+    const favoritesArray = favorites ? favorites.split(',').map(id => parseInt(id)) : [];
+
+    // Process each player
+    const processedPlayers = allPlayers
+      .filter(player => {
+        // Filter by minimum games
+        if (player.gamesPlayed < parseInt(minGames)) return false;
+        
+        // Filter by search name
+        if (searchName && !player.skaterFullName.toLowerCase().includes(searchName.toLowerCase())) {
+          return false;
+        }
+
+        // Filter by favorites
+        if (favoritesArray.length > 0 && !favoritesArray.includes(player.playerId)) {
+          return false;
+        }
+
+        return true;
+      })
+      .map(player => {
+        const playerGameLog = gameLogs[player.playerId];
+        const games = playerGameLog?.gameLog || [];
+        
+        // Calculate hit rate and trend for selected stat
+        const { hitRate, trend, last5Rate, last10Rate } = calculatePlayerStats(
+          games,
+          stat,
+          hideZeros === 'true'
+        );
+
+        // Get betting lines if available
+        const bettingLine = bettingOdds[player.playerId];
+
+        // Get next opponent info
+        const nextOpponent = getNextOpponent(player, teamShotData);
+
+        return {
+          playerId: player.playerId,
+          name: player.skaterFullName,
+          team: player.teamAbbrevs,
+          position: player.positionCode,
+          gamesPlayed: player.gamesPlayed,
+          seasonStats: {
+            goals: player.goals,
+            assists: player.assists,
+            points: player.points,
+            shots: player.shots,
+            pointsPerGame: player.pointsPerGame
+          },
+          hitRate,
+          trend,
+          last5Rate,
+          last10Rate,
+          bettingLine,
+          nextOpponent,
+          recentGames: games.slice(0, 5).map(g => ({
+            date: g.gameDate,
+            opponent: g.opponentAbbrev,
+            goals: g.goals,
+            assists: g.assists,
+            points: g.points,
+            shots: g.shots
+          }))
+        };
+      });
+
+    // Sort players
+    const sortedPlayers = sortPlayers(processedPlayers, sortBy, stat);
+
+    // Set cache headers
+    res.setHeader('Cache-Control', 'public, max-age=300');
+    
+    return res.status(200).json({
+      players: sortedPlayers,
+      meta: {
+        total: sortedPlayers.length,
+        stat,
+        minGames: parseInt(minGames),
+        lastUpdated: cacheData.lastUpdated
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error processing players:', error);
+    return res.status(500).json({
+      error: 'Failed to process player data',
+      message: error.message
+    });
+  }
+}
+
+// Calculate comprehensive player statistics
+function calculatePlayerStats(games, statType, hideZeros) {
+  if (!games || games.length === 0) {
+    return { hitRate: 0, trend: 0, last5Rate: 0, last10Rate: 0 };
+  }
+
+  // Filter zero games if needed
+  const filteredGames = hideZeros 
+    ? games.filter(g => getStatValue(g, statType) > 0)
+    : games;
+
+  if (filteredGames.length === 0) {
+    return { hitRate: 0, trend: 0, last5Rate: 0, last10Rate: 0 };
+  }
+
+  // Calculate median for hit rate threshold
+  const statValues = filteredGames.map(g => getStatValue(g, statType)).sort((a, b) => a - b);
+  const median = calculateMedian(statValues);
+
+  // Calculate hit rates
+  const overMedianCount = filteredGames.filter(g => getStatValue(g, statType) > median).length;
+  const hitRate = (overMedianCount / filteredGames.length) * 100;
+
+  // Calculate trend (last 5 vs previous 5)
+  const last5Games = filteredGames.slice(0, 5);
+  const prev5Games = filteredGames.slice(5, 10);
+  
+  const last5Avg = last5Games.length > 0 
+    ? last5Games.reduce((sum, g) => sum + getStatValue(g, statType), 0) / last5Games.length 
+    : 0;
+  const prev5Avg = prev5Games.length > 0 
+    ? prev5Games.reduce((sum, g) => sum + getStatValue(g, statType), 0) / prev5Games.length 
+    : last5Avg;
+
+  const trend = prev5Avg > 0 ? ((last5Avg - prev5Avg) / prev5Avg) * 100 : 0;
+
+  // Calculate last 5 and last 10 hit rates
+  const last5Rate = calculateHitRateForGames(last5Games, statType, median);
+  const last10Games = filteredGames.slice(0, 10);
+  const last10Rate = calculateHitRateForGames(last10Games, statType, median);
+
+  return {
+    hitRate: Math.round(hitRate),
+    trend: Math.round(trend),
+    last5Rate,
+    last10Rate,
+    median
+  };
+}
+
+function calculateHitRateForGames(games, statType, threshold) {
+  if (games.length === 0) return 0;
+  const hits = games.filter(g => getStatValue(g, statType) > threshold).length;
+  return Math.round((hits / games.length) * 100);
+}
+
+function getStatValue(game, statType) {
+  switch (statType) {
+    case 'goals': return game.goals || 0;
+    case 'assists': return game.assists || 0;
+    case 'shots': return game.shots || 0;
+    case 'points':
+    default:
+      return game.points || 0;
+  }
+}
+
+function calculateMedian(arr) {
+  if (arr.length === 0) return 0;
+  const mid = Math.floor(arr.length / 2);
+  return arr.length % 2 === 0 ? (arr[mid - 1] + arr[mid]) / 2 : arr[mid];
+}
+
+function getNextOpponent(player, teamShotData) {
+  // This would need to be enhanced with actual schedule data
+  // For now, return null
+  return null;
+}
+
+function sortPlayers(players, sortBy, stat) {
+  switch (sortBy) {
+    case 'trend':
+      return players.sort((a, b) => b.trend - a.trend);
+    case 'hitRate':
+      return players.sort((a, b) => b.hitRate - a.hitRate);
+    case 'last5':
+      return players.sort((a, b) => b.last5Rate - a.last5Rate);
+    case 'name':
+      return players.sort((a, b) => a.name.localeCompare(b.name));
+    case 'stat':
+    default:
+      return players.sort((a, b) => {
+        const aValue = a.seasonStats[stat] || 0;
+        const bValue = b.seasonStats[stat] || 0;
+        return bValue - aValue;
+      });
+  }
+}
