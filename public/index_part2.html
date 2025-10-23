@@ -1,0 +1,978 @@
+
+        function filterPlayers() {
+            const searchTerm = document.getElementById('searchPlayer').value.toLowerCase();
+            const hideNoLines = document.getElementById('hideNoLines').checked;
+            const selectedGame = document.getElementById('gameFilter').value;
+            
+            const sourceData = isGoalieMode ? allGoaliesData : allPlayersData;
+            
+            filteredPlayers = sourceData.filter(player => {
+                const fullName = isGoalieMode ? 
+                    `${player.goalieFullName || ''}`.toLowerCase() : 
+                    `${player.skaterFullName || ''}`.toLowerCase();
+                const matchesSearch = searchTerm === '' || fullName.includes(searchTerm);
+                
+                const name = isGoalieMode ? 
+                    (player.goalieFullName || 'Unknown Goalie') : 
+                    (player.skaterFullName || 'Unknown Player');
+                const playerOdds = bettingOdds[name];
+                const hasLine = playerOdds && playerOdds[currentStatType];
+                const passesLineFilter = !hideNoLines || hasLine;
+                
+                let passesGameFilter = true;
+                if (selectedGame && playerOdds && playerOdds[currentStatType]) {
+                    passesGameFilter = playerOdds[currentStatType].game === selectedGame;
+                }
+                
+                return matchesSearch && passesLineFilter && passesGameFilter;
+            });
+            
+            displayPlayers();
+        }
+
+        function getHitRateColor(hitRate) {
+            if (hitRate >= 70) return 'hit-rate-excellent';
+            if (hitRate >= 50) return 'hit-rate-good';
+            if (hitRate >= 30) return 'hit-rate-medium';
+            return 'hit-rate-poor';
+        }
+        
+        function normalizeTeamName(name) {
+            return name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        }
+        
+        function getOrdinal(n) {
+            const s = ["th", "st", "nd", "rd"];
+            const v = n % 100;
+            return n + (s[(v - 20) % 10] || s[v] || s[0]);
+        }
+
+        function displayPlayers() {
+            const container = document.getElementById('playersContainer');
+            
+            const playersWithHitRates = filteredPlayers.map(player => {
+                const name = isGoalieMode ? 
+                    (player.goalieFullName || 'Unknown Goalie') : 
+                    (player.skaterFullName || 'Unknown Player');
+                const playerOdds = bettingOdds[name];
+                const hasLine = playerOdds && playerOdds[currentStatType];
+                
+                let lineValue = 0.5;
+                if (hasLine) {
+                    lineValue = playerOdds[currentStatType].line;
+                }
+                
+                const gameLogSource = isGoalieMode ? allGoalieGameLogs : allGameLogs;
+                const gameLog = gameLogSource[player.playerId];
+                let hitRate = 0;
+                let gamesPlayed = 0;
+                
+                if (gameLog && gameLog.gameLog && gameLog.gameLog.length > 0) {
+                    let games = gameLog.gameLog;
+                    if (isGoalieMode) {
+                        games = games.filter(game => {
+                            const shotsAgainst = game.shotsAgainst || 0;
+                            const gamesStarted = game.gamesStarted || 0;
+                            return gamesStarted > 0 || shotsAgainst > 0;
+                        });
+                    }
+                    games = games.slice(0, 10);
+                    gamesPlayed = games.length;
+                    let hits = 0;
+                    
+                    games.forEach(game => {
+                        let statValue = 0;
+                        if (isGoalieMode) {
+                            const shotsAgainst = game.shotsAgainst || 0;
+                            const goalsAgainst = game.goalsAgainst || 0;
+                            statValue = shotsAgainst - goalsAgainst;
+                        } else {
+                            if (currentStatType === 'points') statValue = game.points || 0;
+                            else if (currentStatType === 'goals') statValue = game.goals || 0;
+                            else if (currentStatType === 'assists') statValue = game.assists || 0;
+                            else if (currentStatType === 'shots') statValue = game.shots || 0;
+                        }
+                        
+                        if (statValue > lineValue) hits++;
+                    });
+                    
+                    hitRate = (hits / games.length) * 100;
+                }
+                
+                return { player, hasLine, hitRate, gamesPlayed };
+            });
+            
+            const seenPlayerIds = new Set();
+            const uniquePlayersWithHitRates = playersWithHitRates.filter(item => {
+                if (seenPlayerIds.has(item.player.playerId)) {
+                    return false;
+                }
+                seenPlayerIds.add(item.player.playerId);
+                return true;
+            });
+            
+            uniquePlayersWithHitRates.sort((a, b) => {
+                if (a.hasLine && !b.hasLine) return -1;
+                if (!a.hasLine && b.hasLine) return 1;
+                
+                if (a.hasLine && b.hasLine) {
+                    if (a.gamesPlayed >= 4 && b.gamesPlayed >= 4) {
+                        return b.hitRate - a.hitRate;
+                    }
+                    if (a.gamesPlayed >= 4 && b.gamesPlayed < 4) return -1;
+                    if (a.gamesPlayed < 4 && b.gamesPlayed >= 4) return 1;
+                    return (b.player.points || 0) - (a.player.points || 0);
+                }
+                
+                return (b.player.points || 0) - (a.player.points || 0);
+            });
+            
+            if (uniquePlayersWithHitRates.length === 0) {
+                container.innerHTML = '<div class="loading">No players found.</div>';
+                return;
+            }
+            
+            let html = uniquePlayersWithHitRates.map(({player, hasLine}) => {
+                const name = isGoalieMode ? 
+                    (player.goalieFullName || 'Unknown Goalie') : 
+                    (player.skaterFullName || 'Unknown Player');
+                const team = player.teamAbbrevs || 'N/A';
+                const gamesPlayed = player.gamesPlayed || 0;
+                
+                let stat1Label, stat1Value, stat2Label, stat2Value, stat3Label, stat3Value;
+                
+                if (isGoalieMode) {
+                    stat1Label = 'Saves';
+                    stat1Value = player.saves || 0;
+                    stat2Label = 'GAA';
+                    stat2Value = (player.goalsAgainstAverage || 0).toFixed(2);
+                    stat3Label = 'SV%';
+                    stat3Value = (player.savePct || 0).toFixed(3);
+                } else {
+                    stat1Label = 'Goals';
+                    stat1Value = player.goals || 0;
+                    stat2Label = 'Assists';
+                    stat2Value = player.assists || 0;
+                    stat3Label = 'Points';
+                    stat3Value = player.points || 0;
+                }
+                
+                const position = isGoalieMode ? 'G' : (player.positionCode || 'N/A');
+                
+                const playerOdds = bettingOdds[name];
+                let oddsDisplay = '';
+                
+                if (hasLine) {
+                    const oddsInfo = playerOdds[currentStatType];
+                    const line = oddsInfo.line;
+                    const price = oddsInfo.odds;
+                    const formattedOdds = price > 0 ? `+${price}` : price;
+                    
+                    if (currentStatType === 'goals' && oddsInfo.type === 'anytime_scorer') {
+                        oddsDisplay = `<div class="odds-line">Anytime Goal ${formattedOdds}</div>`;
+                    } else {
+                        oddsDisplay = `<div class="odds-line">O/U ${line} ${formattedOdds}</div>`;
+                    }
+                }
+                
+                return `
+                    <div class="player-card" onclick="showGameLog(${player.playerId})">
+                        <div class="player-header">
+                            <div class="player-name">${name}</div>
+                            ${oddsDisplay}
+                        </div>
+                        <div class="player-team">${team} - ${position} | GP: ${gamesPlayed}</div>
+                        <div class="player-stats">
+                            <div class="stat">
+                                <div class="stat-label">${stat1Label}</div>
+                                <div class="stat-value">${stat1Value}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">${stat2Label}</div>
+                                <div class="stat-value">${stat2Value}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">${stat3Label}</div>
+                                <div class="stat-value">${stat3Value}</div>
+                            </div>
+                        </div>
+                        <div class="hit-rate-display" id="hitrate-${player.playerId}">
+                            <div class="stat-label">Calculating...</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = html;
+            updateAllHitRates();
+        }
+
+        function updateAllHitRates() {
+            filteredPlayers.forEach(player => {
+                const name = isGoalieMode ? 
+                    (player.goalieFullName || 'Unknown Goalie') : 
+                    (player.skaterFullName || 'Unknown Player');
+                const playerOdds = bettingOdds[name];
+                let lineValue = 0.5;
+                
+                if (playerOdds && playerOdds[currentStatType]) {
+                    lineValue = playerOdds[currentStatType].line;
+                }
+                
+                const gameLogSource = isGoalieMode ? allGoalieGameLogs : allGameLogs;
+                const gameLog = gameLogSource[player.playerId];
+                
+                if (!gameLog || !gameLog.gameLog || gameLog.gameLog.length === 0) {
+                    const hitRateDiv = document.getElementById(`hitrate-${player.playerId}`);
+                    if (hitRateDiv) {
+                        hitRateDiv.innerHTML = `<div class="stat-label">No game log available</div>`;
+                    }
+                    playerHitRates[player.playerId] = 0;
+                    return;
+                }
+
+                let games = gameLog.gameLog;
+                if (isGoalieMode) {
+                    games = games.filter(game => {
+                        const shotsAgainst = game.shotsAgainst || 0;
+                        const gamesStarted = game.gamesStarted || 0;
+                        return gamesStarted > 0 || shotsAgainst > 0;
+                    });
+                }
+                games = games.slice(0, 10);
+                let hits = 0;
+
+                games.forEach(game => {
+                    let statValue = 0;
+                    if (isGoalieMode) {
+                        const shotsAgainst = game.shotsAgainst || 0;
+                        const goalsAgainst = game.goalsAgainst || 0;
+                        statValue = shotsAgainst - goalsAgainst;
+                    } else {
+                        if (currentStatType === 'points') statValue = game.points || 0;
+                        else if (currentStatType === 'goals') statValue = game.goals || 0;
+                        else if (currentStatType === 'assists') statValue = game.assists || 0;
+                        else if (currentStatType === 'shots') statValue = game.shots || 0;
+                    }
+                    
+                    if (statValue > lineValue) hits++;
+                });
+
+                const hitRate = games.length > 0 ? ((hits / games.length) * 100).toFixed(1) : 0;
+                playerHitRates[player.playerId] = parseFloat(hitRate);
+                
+                const hitRateDiv = document.getElementById(`hitrate-${player.playerId}`);
+                const colorClass = getHitRateColor(parseFloat(hitRate));
+                
+                if (hitRateDiv) {
+                    hitRateDiv.innerHTML = `
+                        <div class="stat-label">Last ${games.length} Games vs ${lineValue}</div>
+                        <div class="hit-rate-value ${colorClass}">${hitRate}% (${hits}/${games.length})</div>
+                    `;
+                }
+            });
+        }
+
+        function calculateH2HStats(games, opponent) {
+            const h2hGames = games.filter(game => game.opponentAbbrev === opponent);
+            
+            if (h2hGames.length === 0) return null;
+            
+            // Check if these are goalie games (have shotsAgainst field)
+            const isGoalieStats = h2hGames[0].shotsAgainst !== undefined;
+            
+            if (isGoalieStats) {
+                // Goalie-specific stats
+                let totalSaves = 0;
+                let totalShotsAgainst = 0;
+                let totalGoalsAgainst = 0;
+                let wins = 0;
+                let losses = 0;
+                
+                h2hGames.forEach(game => {
+                    const shotsAgainst = game.shotsAgainst || 0;
+                    const goalsAgainst = game.goalsAgainst || 0;
+                    const saves = shotsAgainst - goalsAgainst;
+                    
+                    totalSaves += saves;
+                    totalShotsAgainst += shotsAgainst;
+                    totalGoalsAgainst += goalsAgainst;
+                    
+                    if (game.decision === 'W') wins++;
+                    if (game.decision === 'L') losses++;
+                });
+                
+                const avgSavePct = totalShotsAgainst > 0 ? (totalSaves / totalShotsAgainst) : 0;
+                
+                return {
+                    games: h2hGames.length,
+                    avgSaves: (totalSaves / h2hGames.length).toFixed(1),
+                    avgShotsAgainst: (totalShotsAgainst / h2hGames.length).toFixed(1),
+                    avgGoalsAgainst: (totalGoalsAgainst / h2hGames.length).toFixed(2),
+                    avgSavePct: (avgSavePct * 100).toFixed(1),
+                    wins,
+                    losses,
+                    isGoalie: true,
+                    opponentAbbrev: opponent
+                };
+            } else {
+                // Skater stats
+                let totalGoals = 0;
+                let totalAssists = 0;
+                let totalPoints = 0;
+                let totalShots = 0;
+                
+                h2hGames.forEach(game => {
+                    totalGoals += game.goals || 0;
+                    totalAssists += game.assists || 0;
+                    totalPoints += game.points || 0;
+                    totalShots += game.shots || 0;
+                });
+                
+                return {
+                    games: h2hGames.length,
+                    avgGoals: (totalGoals / h2hGames.length).toFixed(2),
+                    avgAssists: (totalAssists / h2hGames.length).toFixed(2),
+                    avgPoints: (totalPoints / h2hGames.length).toFixed(2),
+                    avgShots: (totalShots / h2hGames.length).toFixed(2),
+                    totalGoals,
+                    totalAssists,
+                    totalPoints,
+                    isGoalie: false
+                };
+            }
+        }
+
+        function showGameLog(playerId) {
+            const gameLogSource = isGoalieMode ? allGoalieGameLogs : allGameLogs;
+            const playerSource = isGoalieMode ? allGoaliesData : allPlayersData;
+            
+            const gameLog = gameLogSource[playerId];
+            
+            if (!gameLog || !gameLog.gameLog || gameLog.gameLog.length === 0) {
+                alert('Game log not available for this player');
+                return;
+            }
+
+            const player = playerSource.find(p => p.playerId === playerId);
+            const name = isGoalieMode ? 
+                (player.goalieFullName || 'Unknown Goalie') : 
+                (player.skaterFullName || 'Unknown Player');
+            
+            const playerOdds = bettingOdds[name];
+            let lineValue = 0.5;
+            let nextOpponent = null;
+            
+            if (playerOdds && playerOdds[currentStatType]) {
+                lineValue = playerOdds[currentStatType].line;
+                const gameStr = playerOdds[currentStatType].game;
+                const teams = gameStr.split(' vs ');
+                const playerTeamFull = player.teamAbbrevs;
+                
+                const teamFullNames = {
+                    'TOR': 'Toronto Maple Leafs', 'BOS': 'Boston Bruins', 'TBL': 'Tampa Bay Lightning',
+                    'FLA': 'Florida Panthers', 'MTL': 'Montreal Canadiens', 'OTT': 'Ottawa Senators',
+                    'BUF': 'Buffalo Sabres', 'DET': 'Detroit Red Wings', 'NYR': 'New York Rangers',
+                    'NYI': 'New York Islanders', 'NJD': 'New Jersey Devils', 'PIT': 'Pittsburgh Penguins',
+                    'WSH': 'Washington Capitals', 'PHI': 'Philadelphia Flyers', 'CBJ': 'Columbus Blue Jackets',
+                    'CAR': 'Carolina Hurricanes', 'NSH': 'Nashville Predators', 'WPG': 'Winnipeg Jets',
+                    'MIN': 'Minnesota Wild', 'COL': 'Colorado Avalanche', 'DAL': 'Dallas Stars',
+                    'CHI': 'Chicago Blackhawks', 'STL': 'St. Louis Blues', 'VGK': 'Vegas Golden Knights',
+                    'EDM': 'Edmonton Oilers', 'CGY': 'Calgary Flames', 'VAN': 'Vancouver Canucks',
+                    'SEA': 'Seattle Kraken', 'SJS': 'San Jose Sharks', 'ANA': 'Anaheim Ducks',
+                    'LAK': 'Los Angeles Kings', 'ARI': 'Arizona Coyotes', 'UTA': 'Utah Hockey Club', 'UTH': 'Utah Hockey Club'
+                };
+                
+                const playerTeamFullName = teamFullNames[playerTeamFull];
+                
+                if (playerTeamFullName && teams[0].trim() === playerTeamFullName) {
+                    nextOpponent = teams[1].trim();
+                } else {
+                    nextOpponent = teams[0].trim();
+                }
+                
+                console.log('Next opponent detected:', nextOpponent);
+            }
+
+            let games = gameLog.gameLog;
+            if (isGoalieMode) {
+                games = games.filter(game => {
+                    const shotsAgainst = game.shotsAgainst || 0;
+                    const gamesStarted = game.gamesStarted || 0;
+                    return gamesStarted > 0 || shotsAgainst > 0;
+                });
+            }
+            games = games.slice(0, 10);
+            let hits = 0;
+
+            const gameRows = games.map(game => {
+                let statValue = 0;
+                
+                if (isGoalieMode) {
+                    const shotsAgainst = game.shotsAgainst || 0;
+                    const goalsAgainst = game.goalsAgainst || 0;
+                    statValue = shotsAgainst - goalsAgainst;
+                } else {
+                    if (currentStatType === 'points') statValue = game.points || 0;
+                    else if (currentStatType === 'goals') statValue = game.goals || 0;
+                    else if (currentStatType === 'assists') statValue = game.assists || 0;
+                    else if (currentStatType === 'shots') statValue = game.shots || 0;
+                }
+
+                const hit = statValue > lineValue;
+                if (hit) hits++;
+
+                const opponent = game.opponentAbbrev || 'N/A';
+                const homeAway = game.homeRoadFlag === 'H' ? 'vs' : '@';
+                const gameDate = new Date(game.gameDate).toLocaleDateString();
+
+                if (isGoalieMode) {
+                    const teamFullNames = {
+                        'TOR': 'Toronto Maple Leafs', 'BOS': 'Boston Bruins', 'TBL': 'Tampa Bay Lightning',
+                        'FLA': 'Florida Panthers', 'MTL': 'Montreal Canadiens', 'OTT': 'Ottawa Senators',
+                        'BUF': 'Buffalo Sabres', 'DET': 'Detroit Red Wings', 'NYR': 'New York Rangers',
+                        'NYI': 'New York Islanders', 'NJD': 'New Jersey Devils', 'PIT': 'Pittsburgh Penguins',
+                        'WSH': 'Washington Capitals', 'PHI': 'Philadelphia Flyers', 'CBJ': 'Columbus Blue Jackets',
+                        'CAR': 'Carolina Hurricanes', 'NSH': 'Nashville Predators', 'WPG': 'Winnipeg Jets',
+                        'MIN': 'Minnesota Wild', 'COL': 'Colorado Avalanche', 'DAL': 'Dallas Stars',
+                        'CHI': 'Chicago Blackhawks', 'STL': 'St. Louis Blues', 'VGK': 'Vegas Golden Knights',
+                        'EDM': 'Edmonton Oilers', 'CGY': 'Calgary Flames', 'VAN': 'Vancouver Canucks',
+                        'SEA': 'Seattle Kraken', 'SJS': 'San Jose Sharks', 'ANA': 'Anaheim Ducks',
+                        'LAK': 'Los Angeles Kings', 'ARI': 'Arizona Coyotes', 'UTA': 'Utah Hockey Club', 'UTH': 'Utah Hockey Club'
+                    };
+                    
+                    const teamMascots = {
+                        'Toronto Maple Leafs': 'Maple Leafs', 'Boston Bruins': 'Bruins', 'Tampa Bay Lightning': 'Lightning',
+                        'Florida Panthers': 'Panthers', 'Montreal Canadiens': 'Canadiens', 'Ottawa Senators': 'Senators',
+                        'Buffalo Sabres': 'Sabres', 'Detroit Red Wings': 'Red Wings', 'New York Rangers': 'Rangers',
+                        'New York Islanders': 'Islanders', 'New Jersey Devils': 'Devils', 'Pittsburgh Penguins': 'Penguins',
+                        'Washington Capitals': 'Capitals', 'Philadelphia Flyers': 'Flyers', 'Columbus Blue Jackets': 'Blue Jackets',
+                        'Carolina Hurricanes': 'Hurricanes', 'Nashville Predators': 'Predators', 'Winnipeg Jets': 'Jets',
+                        'Minnesota Wild': 'Wild', 'Colorado Avalanche': 'Avalanche', 'Dallas Stars': 'Stars',
+                        'Chicago Blackhawks': 'Blackhawks', 'St. Louis Blues': 'Blues', 'Vegas Golden Knights': 'Golden Knights',
+                        'Edmonton Oilers': 'Oilers', 'Calgary Flames': 'Flames', 'Vancouver Canucks': 'Canucks',
+                        'Seattle Kraken': 'Kraken', 'San Jose Sharks': 'Sharks', 'Anaheim Ducks': 'Ducks',
+                        'Los Angeles Kings': 'Kings', 'Arizona Coyotes': 'Coyotes', 'Utah Hockey Club': 'Utah'
+                    };
+                    
+                    const oppTeamName = teamFullNames[opponent];
+                    let oppTeamData = teamShotData.find(t => t.teamFullName === oppTeamName);
+                    
+                    if (!oppTeamData) {
+                        oppTeamData = teamShotData.find(t => 
+                            t.abbrev === opponent || 
+                            t.teamFullName.includes(opponent) ||
+                            (oppTeamName && oppTeamName.includes(t.abbrev)) ||
+                            normalizeTeamName(t.teamFullName) === normalizeTeamName(oppTeamName) ||
+                            (opponent === 'UTA' && t.teamFullName.includes('Utah')) ||
+                            (opponent === 'UTH' && t.teamFullName.includes('Utah'))
+                        );
+                    }
+                    
+                    let shotRankBadge = '';
+                    if (oppTeamData) {
+                        let badgeColor = '#27ae60';
+                        if (oppTeamData.rank <= 10) {
+                            badgeColor = '#e74c3c';
+                        } else if (oppTeamData.rank <= 22) {
+                            badgeColor = '#f39c12';
+                        }
+                        shotRankBadge = `<span style="background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: bold; margin-left: 5px;">#${oppTeamData.rank}</span>`;
+                    }
+                    
+                    const shotsAgainst = game.shotsAgainst || 0;
+                    const goalsAgainst = game.goalsAgainst || 0;
+                    const saves = shotsAgainst - goalsAgainst;
+                    const savePct = game.savePctg ? (game.savePctg * 100).toFixed(1) + '%' : 'N/A';
+                    
+                    return `
+                        <tr class="${hit ? 'hit' : 'miss'}">
+                            <td>${gameDate}</td>
+                            <td>${homeAway} ${opponent} ${shotRankBadge}</td>
+                            <td>${saves}</td>
+                            <td>${shotsAgainst}</td>
+                            <td>${goalsAgainst}</td>
+                            <td>${savePct}</td>
+                            <td>${game.decision || 'N/A'}</td>
+                        </tr>
+                    `;
+                } else {
+                    let oppDefenseInfo = '';
+                    if (currentStatType === 'shots') {
+                        const teamFullNames = {
+                            'TOR': 'Toronto Maple Leafs', 'BOS': 'Boston Bruins', 'TBL': 'Tampa Bay Lightning',
+                            'FLA': 'Florida Panthers', 'MTL': 'Montreal Canadiens', 'OTT': 'Ottawa Senators',
+                            'BUF': 'Buffalo Sabres', 'DET': 'Detroit Red Wings', 'NYR': 'New York Rangers',
+                            'NYI': 'New York Islanders', 'NJD': 'New Jersey Devils', 'PIT': 'Pittsburgh Penguins',
+                            'WSH': 'Washington Capitals', 'PHI': 'Philadelphia Flyers', 'CBJ': 'Columbus Blue Jackets',
+                            'CAR': 'Carolina Hurricanes', 'NSH': 'Nashville Predators', 'WPG': 'Winnipeg Jets',
+                            'MIN': 'Minnesota Wild', 'COL': 'Colorado Avalanche', 'DAL': 'Dallas Stars',
+                            'CHI': 'Chicago Blackhawks', 'STL': 'St. Louis Blues', 'VGK': 'Vegas Golden Knights',
+                            'EDM': 'Edmonton Oilers', 'CGY': 'Calgary Flames', 'VAN': 'Vancouver Canucks',
+                            'SEA': 'Seattle Kraken', 'SJS': 'San Jose Sharks', 'ANA': 'Anaheim Ducks',
+                            'LAK': 'Los Angeles Kings', 'ARI': 'Arizona Coyotes', 'UTA': 'Utah Hockey Club'
+                        };
+                        
+                        const teamMascots = {
+                            'Toronto Maple Leafs': 'Maple Leafs', 'Boston Bruins': 'Bruins', 'Tampa Bay Lightning': 'Lightning',
+                            'Florida Panthers': 'Panthers', 'Montreal Canadiens': 'Canadiens', 'Ottawa Senators': 'Senators',
+                            'Buffalo Sabres': 'Sabres', 'Detroit Red Wings': 'Red Wings', 'New York Rangers': 'Rangers',
+                            'New York Islanders': 'Islanders', 'New Jersey Devils': 'Devils', 'Pittsburgh Penguins': 'Penguins',
+                            'Washington Capitals': 'Capitals', 'Philadelphia Flyers': 'Flyers', 'Columbus Blue Jackets': 'Blue Jackets',
+                            'Carolina Hurricanes': 'Hurricanes', 'Nashville Predators': 'Predators', 'Winnipeg Jets': 'Jets',
+                            'Minnesota Wild': 'Wild', 'Colorado Avalanche': 'Avalanche', 'Dallas Stars': 'Stars',
+                            'Chicago Blackhawks': 'Blackhawks', 'St. Louis Blues': 'Blues', 'Vegas Golden Knights': 'Golden Knights',
+                            'Edmonton Oilers': 'Oilers', 'Calgary Flames': 'Flames', 'Vancouver Canucks': 'Canucks',
+                            'Seattle Kraken': 'Kraken', 'San Jose Sharks': 'Sharks', 'Anaheim Ducks': 'Ducks',
+                            'Los Angeles Kings': 'Kings', 'Arizona Coyotes': 'Coyotes', 'Utah Hockey Club': 'Hockey Club'
+                        };
+                        
+                        const oppTeamName = teamFullNames[opponent];
+                        let oppTeamData = teamShotData.find(t => t.teamFullName === oppTeamName);
+                        
+                        if (!oppTeamData) {
+                            oppTeamData = teamShotData.find(t => 
+                                t.abbrev === opponent || 
+                                t.teamFullName.includes(opponent) ||
+                                oppTeamName.includes(t.abbrev) ||
+                                normalizeTeamName(t.teamFullName) === normalizeTeamName(oppTeamName)
+                            );
+                        }
+                        
+                        if (oppTeamData) {
+                            const mascot = teamMascots[oppTeamName] || teamMascots[oppTeamData.teamFullName] || opponent;
+                            let badgeColor = '#e74c3c';
+                            if (oppTeamData.defensiveRank <= 10) {
+                                badgeColor = '#27ae60';
+                            } else if (oppTeamData.defensiveRank <= 22) {
+                                badgeColor = '#f39c12';
+                            }
+                            oppDefenseInfo = ` <span style="background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold;">${mascot} allow ${oppTeamData.shotsAgainstPerGame.toFixed(1)}/g</span>`;
+                        }
+                    }
+                    
+                    return `
+                        <tr class="${hit ? 'hit' : 'miss'}">
+                            <td>${gameDate}</td>
+                            <td>${homeAway} ${opponent}${oppDefenseInfo}</td>
+                            <td>${game.goals || 0}</td>
+                            <td>${game.assists || 0}</td>
+                            <td>${game.points || 0}</td>
+                            <td>${game.shots || 0}</td>
+                            <td><strong>${statValue}</strong></td>
+                        </tr>
+                    `;
+                }
+            }).join('');
+
+            const hitRate = ((hits / games.length) * 100).toFixed(1);
+            const colorClass = getHitRateColor(parseFloat(hitRate));
+            
+            let h2hSection = '';
+            if (nextOpponent) {
+                const allGames = gameLog.gameLog;
+                const h2hStats = calculateH2HStats(allGames, nextOpponent);
+                
+                console.log('H2H Stats:', h2hStats);
+                
+                if (h2hStats && h2hStats.games > 0) {
+                    const h2hHitRate = calculateH2HHitRate(allGames, h2hStats.opponentAbbrev, lineValue);
+                    const h2hColorClass = getHitRateColor(h2hHitRate);
+                    
+                    if (h2hStats.isGoalie) {
+                        // Goalie H2H stats
+                        h2hSection = `
+                            <div class="h2h-section">
+                                <div class="h2h-title">📊 Head-to-Head vs ${nextOpponent} (Last ${h2hStats.games} games)</div>
+                                <div class="h2h-stats">
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Games</div>
+                                        <div class="h2h-stat-value">${h2hStats.games}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Record</div>
+                                        <div class="h2h-stat-value">${h2hStats.wins}-${h2hStats.losses}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Avg Saves</div>
+                                        <div class="h2h-stat-value">${h2hStats.avgSaves}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Avg Shots Against</div>
+                                        <div class="h2h-stat-value">${h2hStats.avgShotsAgainst}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Avg Goals Against</div>
+                                        <div class="h2h-stat-value">${h2hStats.avgGoalsAgainst}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Avg SV%</div>
+                                        <div class="h2h-stat-value">${h2hStats.avgSavePct}%</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Hit Rate vs ${lineValue}</div>
+                                        <div class="h2h-stat-value ${h2hColorClass}">${h2hHitRate.toFixed(1)}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Skater H2H stats
+                        h2hSection = `
+                            <div class="h2h-section">
+                                <div class="h2h-title">📊 Head-to-Head vs ${nextOpponent} (Last ${h2hStats.games} games)</div>
+                                <div class="h2h-stats">
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Games</div>
+                                        <div class="h2h-stat-value">${h2hStats.games}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Avg Goals</div>
+                                        <div class="h2h-stat-value">${h2hStats.avgGoals}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Avg Assists</div>
+                                        <div class="h2h-stat-value">${h2hStats.avgAssists}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Avg Points</div>
+                                        <div class="h2h-stat-value">${h2hStats.avgPoints}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Avg Shots</div>
+                                        <div class="h2h-stat-value">${h2hStats.avgShots}</div>
+                                    </div>
+                                    <div class="h2h-stat">
+                                        <div class="h2h-stat-label">Hit Rate vs ${lineValue}</div>
+                                        <div class="h2h-stat-value ${h2hColorClass}">${h2hHitRate.toFixed(1)}%</div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    h2hSection = `
+                        <div class="h2h-section" style="background: var(--card-bg); border: 2px dashed var(--input-border);">
+                            <div class="h2h-title" style="color: var(--text-secondary);">📊 Head-to-Head vs ${nextOpponent}</div>
+                            <div style="text-align: center; padding: 15px; color: var(--text-secondary); font-style: italic;">
+                                No previous games vs ${nextOpponent} this season
+                            </div>
+                        </div>
+                    `;
+                    console.log('No H2H games found for opponent:', nextOpponent);
+                }
+            }
+            
+            let oddsCard = '';
+            if (playerOdds && playerOdds[currentStatType]) {
+                const oddsInfo = playerOdds[currentStatType];
+                const formattedOdds = oddsInfo.odds > 0 ? `+${oddsInfo.odds}` : oddsInfo.odds;
+                
+                let oddsLabel = 'Betting Line';
+                let oddsValue = `O/U ${oddsInfo.line} ${formattedOdds}`;
+                
+                if (currentStatType === 'goals' && oddsInfo.type === 'anytime_scorer') {
+                    oddsLabel = 'Anytime Goal Scorer';
+                    oddsValue = formattedOdds;
+                }
+                
+                oddsCard = `
+                    <div class="summary-card">
+                        <div class="summary-label">${oddsLabel}</div>
+                        <div class="summary-value" style="color: #e67e22; font-size: 1.5em;">${oddsValue}</div>
+                    </div>
+                `;
+            }
+
+            const modalContent = document.getElementById('modalContent');
+            
+            const inWatchlist = playerOdds && playerOdds[currentStatType] && 
+                isInWatchlist(player.playerId, currentStatType);
+            
+            let starIcon = '';
+            if (playerOdds && playerOdds[currentStatType]) {
+                const oddsInfo = playerOdds[currentStatType];
+                starIcon = `
+                    <span class="star-icon ${inWatchlist ? 'active' : ''}" 
+                          onclick="event.stopPropagation(); toggleWatchlistFromModal(${player.playerId}, '${name}', '${currentStatType}', ${oddsInfo.line}, ${oddsInfo.odds}, '${oddsInfo.game}', '${oddsInfo.gameTime}')">
+                        ${inWatchlist ? '⭐' : '☆'}
+                    </span>
+                `;
+            }
+            
+            modalContent.innerHTML = `
+                <h2>${starIcon}${name}</h2>
+                <p>${player.teamAbbrevs} - ${isGoalieMode ? 'G' : player.positionCode}</p>
+                
+                <div class="summary-stats">
+                    <div class="summary-card">
+                        <div class="summary-label">Hit Rate</div>
+                        <div class="summary-value ${colorClass}">${hitRate}%</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Hits</div>
+                        <div class="summary-value">${hits}/${games.length}</div>
+                    </div>
+                    ${oddsCard}
+                    <div class="summary-card">
+                        <div class="summary-label">${isGoalieMode ? 'Season Saves' : 'Season Points'}</div>
+                        <div class="summary-value">${isGoalieMode ? (player.saves || 0) : (player.points || 0)}</div>
+                    </div>
+                </div>
+                
+                ${playerOdds && playerOdds[currentStatType] ? `
+                    <div style="background: var(--warning-bg); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; transition: all 0.3s ease;">
+                        <div style="font-size: 0.9em; color: var(--warning-text); margin-bottom: 5px; font-weight: 600;">🏒 This Game</div>
+                        <div style="font-size: 1.2em; font-weight: bold; color: var(--text-primary);">${playerOdds[currentStatType].game}</div>
+                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">${new Date(playerOdds[currentStatType].gameTime).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Odds from ${playerOdds[currentStatType].bookmaker}</div>
+                        ${isGoalieMode && nextOpponent ? (() => {
+                            const oppTeamData = teamShotData.find(t => t.teamFullName === nextOpponent);
+                            if (oppTeamData) {
+                                // Also get goalie's team defensive stats
+                                const teamNamesMap = {
+                                    'TOR': 'Toronto Maple Leafs', 'BOS': 'Boston Bruins', 'TBL': 'Tampa Bay Lightning',
+                                    'FLA': 'Florida Panthers', 'MTL': 'Montreal Canadiens', 'OTT': 'Ottawa Senators',
+                                    'BUF': 'Buffalo Sabres', 'DET': 'Detroit Red Wings', 'NYR': 'New York Rangers',
+                                    'NYI': 'New York Islanders', 'NJD': 'New Jersey Devils', 'PIT': 'Pittsburgh Penguins',
+                                    'WSH': 'Washington Capitals', 'PHI': 'Philadelphia Flyers', 'CBJ': 'Columbus Blue Jackets',
+                                    'CAR': 'Carolina Hurricanes', 'NSH': 'Nashville Predators', 'WPG': 'Winnipeg Jets',
+                                    'MIN': 'Minnesota Wild', 'COL': 'Colorado Avalanche', 'DAL': 'Dallas Stars',
+                                    'CHI': 'Chicago Blackhawks', 'STL': 'St. Louis Blues', 'VGK': 'Vegas Golden Knights',
+                                    'EDM': 'Edmonton Oilers', 'CGY': 'Calgary Flames', 'VAN': 'Vancouver Canucks',
+                                    'SEA': 'Seattle Kraken', 'SJS': 'San Jose Sharks', 'ANA': 'Anaheim Ducks',
+                                    'LAK': 'Los Angeles Kings', 'ARI': 'Arizona Coyotes', 'UTA': 'Utah Hockey Club', 'UTH': 'Utah Hockey Club'
+                                };
+                                
+                                const teamMascots = {
+                                    'Toronto Maple Leafs': 'Maple Leafs', 'Boston Bruins': 'Bruins', 'Tampa Bay Lightning': 'Lightning',
+                                    'Florida Panthers': 'Panthers', 'Montreal Canadiens': 'Canadiens', 'Ottawa Senators': 'Senators',
+                                    'Buffalo Sabres': 'Sabres', 'Detroit Red Wings': 'Red Wings', 'New York Rangers': 'Rangers',
+                                    'New York Islanders': 'Islanders', 'New Jersey Devils': 'Devils', 'Pittsburgh Penguins': 'Penguins',
+                                    'Washington Capitals': 'Capitals', 'Philadelphia Flyers': 'Flyers', 'Columbus Blue Jackets': 'Blue Jackets',
+                                    'Carolina Hurricanes': 'Hurricanes', 'Nashville Predators': 'Predators', 'Winnipeg Jets': 'Jets',
+                                    'Minnesota Wild': 'Wild', 'Colorado Avalanche': 'Avalanche', 'Dallas Stars': 'Stars',
+                                    'Chicago Blackhawks': 'Blackhawks', 'St. Louis Blues': 'Blues', 'Vegas Golden Knights': 'Golden Knights',
+                                    'Edmonton Oilers': 'Oilers', 'Calgary Flames': 'Flames', 'Vancouver Canucks': 'Canucks',
+                                    'Seattle Kraken': 'Kraken', 'San Jose Sharks': 'Sharks', 'Anaheim Ducks': 'Ducks',
+                                    'Los Angeles Kings': 'Kings', 'Arizona Coyotes': 'Coyotes', 'Utah Hockey Club': 'Utah'
+                                };
+                                
+                                const oppMascot = teamMascots[nextOpponent] || nextOpponent.split(' ').pop();
+                                
+                                const goalieTeamFullName = teamNamesMap[player.teamAbbrevs];
+                                const goalieTeamData = teamShotData.find(t => 
+                                    t.teamFullName === goalieTeamFullName || 
+                                    t.abbrev === player.teamAbbrevs
+                                );
+                                
+                                let goalieTeamInfo = '';
+                                if (goalieTeamData) {
+                                    const mascot = teamMascots[goalieTeamFullName] || player.teamAbbrevs;
+                                    goalieTeamInfo = `<div style="font-size: 0.95em; color: var(--text-primary); margin-top: 5px; font-weight: 600;">${mascot} allow ${goalieTeamData.shotsAgainstPerGame.toFixed(1)} shots/game | ${getOrdinal(goalieTeamData.defensiveRank)} in NHL</div>`;
+                                }
+                                
+                                return `<div style="font-size: 0.95em; color: var(--text-primary); margin-top: 8px; font-weight: 600;">🎯 ${oppMascot} take ${oppTeamData.shotsPerGame.toFixed(1)} shots/game | ${getOrdinal(oppTeamData.rank)} in NHL</div>${goalieTeamInfo}`;
+                            }
+                            return '';
+                        })() : !isGoalieMode && currentStatType === 'shots' && nextOpponent ? (() => {
+                            const teamMascots = {
+                                'Toronto Maple Leafs': 'Maple Leafs', 'Boston Bruins': 'Bruins', 'Tampa Bay Lightning': 'Lightning',
+                                'Florida Panthers': 'Panthers', 'Montreal Canadiens': 'Canadiens', 'Ottawa Senators': 'Senators',
+                                'Buffalo Sabres': 'Sabres', 'Detroit Red Wings': 'Red Wings', 'New York Rangers': 'Rangers',
+                                'New York Islanders': 'Islanders', 'New Jersey Devils': 'Devils', 'Pittsburgh Penguins': 'Penguins',
+                                'Washington Capitals': 'Capitals', 'Philadelphia Flyers': 'Flyers', 'Columbus Blue Jackets': 'Blue Jackets',
+                                'Carolina Hurricanes': 'Hurricanes', 'Nashville Predators': 'Predators', 'Winnipeg Jets': 'Jets',
+                                'Minnesota Wild': 'Wild', 'Colorado Avalanche': 'Avalanche', 'Dallas Stars': 'Stars',
+                                'Chicago Blackhawks': 'Blackhawks', 'St. Louis Blues': 'Blues', 'Vegas Golden Knights': 'Golden Knights',
+                                'Edmonton Oilers': 'Oilers', 'Calgary Flames': 'Flames', 'Vancouver Canucks': 'Canucks',
+                                'Seattle Kraken': 'Kraken', 'San Jose Sharks': 'Sharks', 'Anaheim Ducks': 'Ducks',
+                                'Los Angeles Kings': 'Kings', 'Arizona Coyotes': 'Coyotes', 'Utah Hockey Club': 'Utah'
+                            };
+                            let oppTeamData = teamShotData.find(t => t.teamFullName === nextOpponent);
+                            if (!oppTeamData) {
+                                oppTeamData = teamShotData.find(t => 
+                                    t.teamFullName.includes(nextOpponent.split(' ').pop()) ||
+                                    nextOpponent.includes(t.teamFullName) ||
+                                    normalizeTeamName(t.teamFullName) === normalizeTeamName(nextOpponent) ||
+                                    (nextOpponent.includes('Utah') && t.teamFullName.includes('Utah'))
+                                );
+                            }
+                            if (oppTeamData) {
+                                const mascot = teamMascots[nextOpponent] || teamMascots[oppTeamData.teamFullName] || nextOpponent.split(' ').pop();
+                                return `<div style="font-size: 0.95em; color: var(--text-primary); margin-top: 8px; font-weight: 600;">🎯 ${mascot} allow ${oppTeamData.shotsAgainstPerGame.toFixed(1)} shots/game | ${getOrdinal(oppTeamData.defensiveRank)} most</div>`;
+                            }
+                            return '';
+                        })() : ''}
+                    </div>
+                ` : ''}
+                
+                ${h2hSection}
+
+                <h3>Last ${games.length} Games</h3>
+                ${isGoalieMode ? `
+                    <div style="background: var(--card-bg); padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 0.85em; color: var(--text-secondary);">
+                        <strong>Badge Colors:</strong> 
+                        <span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 3px; margin: 0 3px;">#1-10</span> High shot volume (more work) 
+                        <span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; margin: 0 3px;">#11-22</span> Medium 
+                        <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; margin: 0 3px;">#23-32</span> Low shot volume (easier)
+                    </div>
+                ` : currentStatType === 'shots' ? `
+                    <div style="background: var(--card-bg); padding: 10px; border-radius: 5px; margin-bottom: 10px; font-size: 0.85em; color: var(--text-secondary);">
+                        <strong>Badge Colors:</strong> 
+                        <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; margin: 0 3px;">#1-10</span> Allow most shots (easier) 
+                        <span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; margin: 0 3px;">#11-22</span> Medium 
+                        <span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 3px; margin: 0 3px;">#23-32</span> Allow fewest shots (harder)
+                    </div>
+                ` : ''}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Opponent</th>
+                            ${isGoalieMode ? `
+                                <th>Saves</th>
+                                <th>Shots Against</th>
+                                <th>GA</th>
+                                <th>SV%</th>
+                                <th>Decision</th>
+                            ` : `
+                                <th>Goals</th>
+                                <th>Assists</th>
+                                <th>Points</th>
+                                <th>Shots</th>
+                                <th>${currentStatType.charAt(0).toUpperCase() + currentStatType.slice(1)}</th>
+                            `}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${gameRows}
+                    </tbody>
+                </table>
+            `;
+
+            document.getElementById('gameLogModal').style.display = 'block';
+        }
+
+        function calculateH2HStats(allGames, opponentFullName) {
+            const teamMappings = {
+                'Toronto Maple Leafs': 'TOR',
+                'Boston Bruins': 'BOS',
+                'Tampa Bay Lightning': 'TBL',
+                'Florida Panthers': 'FLA',
+                'Montreal Canadiens': 'MTL',
+                'Ottawa Senators': 'OTT',
+                'Buffalo Sabres': 'BUF',
+                'Detroit Red Wings': 'DET',
+                'New York Rangers': 'NYR',
+                'New York Islanders': 'NYI',
+                'New Jersey Devils': 'NJD',
+                'Pittsburgh Penguins': 'PIT',
+                'Washington Capitals': 'WSH',
+                'Philadelphia Flyers': 'PHI',
+                'Columbus Blue Jackets': 'CBJ',
+                'Carolina Hurricanes': 'CAR',
+                'Nashville Predators': 'NSH',
+                'Winnipeg Jets': 'WPG',
+                'Minnesota Wild': 'MIN',
+                'Colorado Avalanche': 'COL',
+                'Dallas Stars': 'DAL',
+                'Chicago Blackhawks': 'CHI',
+                'St. Louis Blues': 'STL',
+                'Vegas Golden Knights': 'VGK',
+                'Edmonton Oilers': 'EDM',
+                'Calgary Flames': 'CGY',
+                'Vancouver Canucks': 'VAN',
+                'Seattle Kraken': 'SEA',
+                'San Jose Sharks': 'SJS',
+                'Anaheim Ducks': 'ANA',
+                'Los Angeles Kings': 'LAK',
+                'Arizona Coyotes': 'ARI',
+                'Utah Hockey Club': 'UTA',
+                'Utah Mammoth': 'UTA'
+            };
+            
+            const opponentAbbrev = teamMappings[opponentFullName];
+            
+            if (!opponentAbbrev) {
+                console.log('Could not find abbreviation for:', opponentFullName);
+                return null;
+            }
+            
+            console.log('Looking for games against:', opponentAbbrev);
+            
+            const h2hGames = allGames.filter(game => game.opponentAbbrev === opponentAbbrev);
+            
+            console.log('Found', h2hGames.length, 'games against', opponentAbbrev);
+            
+            if (h2hGames.length === 0) return null;
+            
+            let totalGoals = 0;
+            let totalAssists = 0;
+            let totalPoints = 0;
+            let totalShots = 0;
+            
+            h2hGames.forEach(game => {
+                totalGoals += game.goals || 0;
+                totalAssists += game.assists || 0;
+                totalPoints += game.points || 0;
+                totalShots += game.shots || 0;
+            });
+            
+            return {
+                games: h2hGames.length,
+                avgGoals: (totalGoals / h2hGames.length).toFixed(2),
+                avgAssists: (totalAssists / h2hGames.length).toFixed(2),
+                avgPoints: (totalPoints / h2hGames.length).toFixed(2),
+                avgShots: (totalShots / h2hGames.length).toFixed(2),
+                totalGoals,
+                totalAssists,
+                totalPoints,
+                opponentAbbrev
+            };
+        }
+
+        function calculateH2HHitRate(allGames, opponentAbbrev, lineValue) {
+            const h2hGames = allGames.filter(game => game.opponentAbbrev === opponentAbbrev);
+            
+            if (h2hGames.length === 0) return 0;
+            
+            // Check if these are goalie games
+            const isGoalieStats = h2hGames[0].shotsAgainst !== undefined;
+            
+            let hits = 0;
+            h2hGames.forEach(game => {
+                let statValue = 0;
+                
+                if (isGoalieStats) {
+                    // Calculate saves for goalies
+                    const shotsAgainst = game.shotsAgainst || 0;
+                    const goalsAgainst = game.goalsAgainst || 0;
+                    statValue = shotsAgainst - goalsAgainst;
+                } else {
+                    // Calculate based on current stat type for skaters
+                    if (currentStatType === 'points') statValue = game.points || 0;
+                    else if (currentStatType === 'goals') statValue = game.goals || 0;
+                    else if (currentStatType === 'assists') statValue = game.assists || 0;
+                    else if (currentStatType === 'shots') statValue = game.shots || 0;
+                }
+                
+                if (statValue > lineValue) hits++;
+            });
+            
+            return (hits / h2hGames.length) * 100;
+        }
+
+        function closeModal() {
+            document.getElementById('gameLogModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('gameLogModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>
