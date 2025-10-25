@@ -331,21 +331,30 @@ export default async function handler(req, res) {
     let successCount = 0;
     let errorCount = 0;
 
-    const batchSize = 100;
+    const batchSize = 50; // REDUCED from 100 to be safer
     for (let i = 0; i < playersWithGames.length; i += batchSize) {
       const batch = playersWithGames.slice(i, i + batchSize);
       
       const results = await Promise.allSettled(
         batch.map(async player => {
-          const gameLogUrl = `https://api-web.nhle.com/v1/player/${player.playerId}/game-log/${season}/2`;
-          const response = await fetch(gameLogUrl);
-          if (response.ok) {
-            const gameLog = await response.json();
-            if (gameLog?.gameLog?.length > 0) {
-              return { playerId: player.playerId, gameLog };
+          try {
+            const gameLogUrl = `https://api-web.nhle.com/v1/player/${player.playerId}/game-log/${season}/2`;
+            const response = await fetch(gameLogUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0'
+              }
+            });
+            
+            if (response.ok) {
+              const gameLog = await response.json();
+              if (gameLog?.gameLog?.length > 0) {
+                return { playerId: player.playerId, gameLog };
+              }
             }
+            throw new Error(`HTTP ${response.status}`);
+          } catch (err) {
+            throw new Error(err.message);
           }
-          throw new Error('No data');
         })
       );
       
@@ -358,10 +367,11 @@ export default async function handler(req, res) {
         }
       });
       
-      console.log(`Processed ${Math.min(i + batchSize, playersWithGames.length)}/${playersWithGames.length} players`);
+      console.log(`Processed ${Math.min(i + batchSize, playersWithGames.length)}/${playersWithGames.length} players (${successCount} success, ${errorCount} errors)`);
       
+      // INCREASED delay between batches to avoid rate limiting
       if (i + batchSize < playersWithGames.length) {
-        await new Promise(r => setTimeout(r, 100));
+        await new Promise(r => setTimeout(r, 500)); // Changed from 100ms to 500ms
       }
     }
 
@@ -373,20 +383,30 @@ export default async function handler(req, res) {
     let goalieSuccessCount = 0;
     let goalieErrorCount = 0;
 
-    for (let i = 0; i < goaliesWithGames.length; i += batchSize) {
-      const batch = goaliesWithGames.slice(i, i + batchSize);
+    const goalieBatchSize = 25; // Smaller batches for goalies
+    for (let i = 0; i < goaliesWithGames.length; i += goalieBatchSize) {
+      const batch = goaliesWithGames.slice(i, i + goalieBatchSize);
       
       const goalieResults = await Promise.allSettled(
         batch.map(async goalie => {
-          const gameLogUrl = `https://api-web.nhle.com/v1/player/${goalie.playerId}/game-log/${season}/2`;
-          const response = await fetch(gameLogUrl);
-          if (response.ok) {
-            const gameLog = await response.json();
-            if (gameLog?.gameLog?.length > 0) {
-              return { playerId: goalie.playerId, gameLog };
+          try {
+            const gameLogUrl = `https://api-web.nhle.com/v1/player/${goalie.playerId}/game-log/${season}/2`;
+            const response = await fetch(gameLogUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0'
+              }
+            });
+            
+            if (response.ok) {
+              const gameLog = await response.json();
+              if (gameLog?.gameLog?.length > 0) {
+                return { playerId: goalie.playerId, gameLog };
+              }
             }
+            throw new Error(`HTTP ${response.status}`);
+          } catch (err) {
+            throw new Error(err.message);
           }
-          throw new Error('No data');
         })
       );
       
@@ -399,10 +419,10 @@ export default async function handler(req, res) {
         }
       });
       
-      console.log(`Processed ${Math.min(i + batchSize, goaliesWithGames.length)}/${goaliesWithGames.length} goalies`);
+      console.log(`Processed ${Math.min(i + goalieBatchSize, goaliesWithGames.length)}/${goaliesWithGames.length} goalies (${goalieSuccessCount} success, ${goalieErrorCount} errors)`);
       
-      if (i + batchSize < goaliesWithGames.length) {
-        await new Promise(r => setTimeout(r, 100));
+      if (i + goalieBatchSize < goaliesWithGames.length) {
+        await new Promise(r => setTimeout(r, 500));
       }
     }
 
