@@ -2138,11 +2138,11 @@
                         <div class="summary-label">Hits</div>
                         <div class="summary-value">${hits}/${games.length}</div>
                     </div>
-                    ${oddsCard}
                     <div class="summary-card">
                         <div class="summary-label">${isGoalieMode ? 'Season Saves' : 'Season Points'}</div>
                         <div class="summary-value">${isGoalieMode ? (player.saves || 0) : (player.points || 0)}</div>
                     </div>
+                    ${oddsCard}
                 </div>
                 
                 ${hasLines ? `
