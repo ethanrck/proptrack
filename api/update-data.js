@@ -85,10 +85,6 @@ export default async function handler(req, res) {
       teamFullName: team.teamFullName,
       shotsPerGame: (team.shotsForPerGame || 0),
       shotsAgainstPerGame: (team.shotsAgainstPerGame || 0),
-      goalsPerGame: (team.goalsForPerGame || 0),
-      goalsAgainstPerGame: (team.goalsAgainstPerGame || 0),
-      pointsPerGame: ((team.goalsForPerGame || 0) + (team.goalsForPerGame || 0) * 0.5), // Approximate points (goals + assists estimate)
-      pointsAgainstPerGame: ((team.goalsAgainstPerGame || 0) + (team.goalsAgainstPerGame || 0) * 0.5), // Approximate points against
       gamesPlayed: team.gamesPlayed || 0
     })).sort((a, b) => b.shotsPerGame - a.shotsPerGame);
 
@@ -102,20 +98,6 @@ export default async function handler(req, res) {
     sortedByDefense.forEach((team, index) => {
       const originalTeam = teamShotData.find(t => t.teamFullName === team.teamFullName);
       originalTeam.defensiveRank = index + 1;
-    });
-    
-    // Add goals against rank (1 = allows most goals AGAINST - worst defense)
-    const sortedByGoalsAgainst = [...teamShotData].sort((a, b) => b.goalsAgainstPerGame - a.goalsAgainstPerGame);
-    sortedByGoalsAgainst.forEach((team, index) => {
-      const originalTeam = teamShotData.find(t => t.teamFullName === team.teamFullName);
-      originalTeam.goalsAgainstRank = index + 1;
-    });
-    
-    // Add points against rank (1 = allows most points AGAINST - worst defense)
-    const sortedByPointsAgainst = [...teamShotData].sort((a, b) => b.pointsAgainstPerGame - a.pointsAgainstPerGame);
-    sortedByPointsAgainst.forEach((team, index) => {
-      const originalTeam = teamShotData.find(t => t.teamFullName === team.teamFullName);
-      originalTeam.pointsAgainstRank = index + 1;
     });
 
     console.log(`Loaded stats for ${teamShotData.length} teams (${Date.now() - startTime}ms)`);
