@@ -2258,63 +2258,6 @@
                                 return `<div style="font-size: 0.95em; color: var(--text-primary); margin-top: 8px; font-weight: 600;">🎯 ${mascot} allow ${oppTeamData.shotsAgainstPerGame.toFixed(1)} shots/game | ${getOrdinal(oppTeamData.defensiveRank)} most</div>`;
                             }
                             return '';
-                        })() : !isGoalieMode && currentStatType === 'goals' && nextOpponent ? (() => {
-                            const teamMascots = {
-                                'Toronto Maple Leafs': 'Maple Leafs', 'Boston Bruins': 'Bruins', 'Tampa Bay Lightning': 'Lightning',
-                                'Florida Panthers': 'Panthers', 'Montreal Canadiens': 'Canadiens', 'Ottawa Senators': 'Senators',
-                                'Buffalo Sabres': 'Sabres', 'Detroit Red Wings': 'Red Wings', 'New York Rangers': 'Rangers',
-                                'New York Islanders': 'Islanders', 'New Jersey Devils': 'Devils', 'Pittsburgh Penguins': 'Penguins',
-                                'Washington Capitals': 'Capitals', 'Philadelphia Flyers': 'Flyers', 'Columbus Blue Jackets': 'Blue Jackets',
-                                'Carolina Hurricanes': 'Hurricanes', 'Nashville Predators': 'Predators', 'Winnipeg Jets': 'Jets',
-                                'Minnesota Wild': 'Wild', 'Colorado Avalanche': 'Avalanche', 'Dallas Stars': 'Stars',
-                                'Chicago Blackhawks': 'Blackhawks', 'St. Louis Blues': 'Blues', 'Vegas Golden Knights': 'Golden Knights',
-                                'Edmonton Oilers': 'Oilers', 'Calgary Flames': 'Flames', 'Vancouver Canucks': 'Canucks',
-                                'Seattle Kraken': 'Kraken', 'San Jose Sharks': 'Sharks', 'Anaheim Ducks': 'Ducks',
-                                'Los Angeles Kings': 'Kings', 'Arizona Coyotes': 'Coyotes', 'Utah Hockey Club': 'Utah'
-                            };
-                            let oppTeamData = teamShotData.find(t => t.teamFullName === nextOpponent);
-                            if (!oppTeamData) {
-                                oppTeamData = teamShotData.find(t => 
-                                    t.teamFullName.includes(nextOpponent.split(' ').pop()) ||
-                                    nextOpponent.includes(t.teamFullName) ||
-                                    normalizeTeamName(t.teamFullName) === normalizeTeamName(nextOpponent) ||
-                                    (nextOpponent.includes('Utah') && t.teamFullName.includes('Utah'))
-                                );
-                            }
-                            if (oppTeamData) {
-                                const mascot = teamMascots[nextOpponent] || teamMascots[oppTeamData.teamFullName] || nextOpponent.split(' ').pop();
-                                return `<div style="font-size: 0.95em; color: var(--text-primary); margin-top: 8px; font-weight: 600;">🎯 ${mascot} allow ${oppTeamData.goalsAgainstPerGame.toFixed(1)} goals/game | ${getOrdinal(oppTeamData.goalsAgainstRank)} most</div>`;
-                            }
-                            return '';
-                        })() : !isGoalieMode && (currentStatType === 'points' || currentStatType === 'assists') && nextOpponent ? (() => {
-                            const teamMascots = {
-                                'Toronto Maple Leafs': 'Maple Leafs', 'Boston Bruins': 'Bruins', 'Tampa Bay Lightning': 'Lightning',
-                                'Florida Panthers': 'Panthers', 'Montreal Canadiens': 'Canadiens', 'Ottawa Senators': 'Senators',
-                                'Buffalo Sabres': 'Sabres', 'Detroit Red Wings': 'Red Wings', 'New York Rangers': 'Rangers',
-                                'New York Islanders': 'Islanders', 'New Jersey Devils': 'Devils', 'Pittsburgh Penguins': 'Penguins',
-                                'Washington Capitals': 'Capitals', 'Philadelphia Flyers': 'Flyers', 'Columbus Blue Jackets': 'Blue Jackets',
-                                'Carolina Hurricanes': 'Hurricanes', 'Nashville Predators': 'Predators', 'Winnipeg Jets': 'Jets',
-                                'Minnesota Wild': 'Wild', 'Colorado Avalanche': 'Avalanche', 'Dallas Stars': 'Stars',
-                                'Chicago Blackhawks': 'Blackhawks', 'St. Louis Blues': 'Blues', 'Vegas Golden Knights': 'Golden Knights',
-                                'Edmonton Oilers': 'Oilers', 'Calgary Flames': 'Flames', 'Vancouver Canucks': 'Canucks',
-                                'Seattle Kraken': 'Kraken', 'San Jose Sharks': 'Sharks', 'Anaheim Ducks': 'Ducks',
-                                'Los Angeles Kings': 'Kings', 'Arizona Coyotes': 'Coyotes', 'Utah Hockey Club': 'Utah'
-                            };
-                            let oppTeamData = teamShotData.find(t => t.teamFullName === nextOpponent);
-                            if (!oppTeamData) {
-                                oppTeamData = teamShotData.find(t => 
-                                    t.teamFullName.includes(nextOpponent.split(' ').pop()) ||
-                                    nextOpponent.includes(t.teamFullName) ||
-                                    normalizeTeamName(t.teamFullName) === normalizeTeamName(nextOpponent) ||
-                                    (nextOpponent.includes('Utah') && t.teamFullName.includes('Utah'))
-                                );
-                            }
-                            if (oppTeamData) {
-                                const mascot = teamMascots[nextOpponent] || teamMascots[oppTeamData.teamFullName] || nextOpponent.split(' ').pop();
-                                const statLabel = currentStatType === 'points' ? 'points' : 'assists';
-                                return `<div style="font-size: 0.95em; color: var(--text-primary); margin-top: 8px; font-weight: 600;">🎯 ${mascot} allow ${oppTeamData.pointsAgainstPerGame.toFixed(1)} ${statLabel}/game | ${getOrdinal(oppTeamData.pointsAgainstRank)} most</div>`;
-                            }
-                            return '';
                         })() : ''}
                     </div>
                 ` : ''}
