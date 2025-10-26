@@ -88,15 +88,17 @@
         
         .header-row {
             display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
             margin-bottom: 10px;
+            position: relative;
         }
         
         h1 {
             color: var(--text-primary);
             font-size: 2.5em;
             transition: color 0.3s ease;
+            text-align: center;
         }
         
         .dark-mode-toggle {
@@ -109,6 +111,8 @@
             cursor: pointer;
             transition: all 0.3s;
             font-weight: 600;
+            position: absolute;
+            right: 0;
         }
         
         .dark-mode-toggle:hover {
@@ -705,6 +709,42 @@
             color: var(--text-secondary);
             transition: color 0.3s ease;
         }
+        
+        /* Collapsible Available Lines Section */
+        .collapsible-header {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .collapsible-header:hover {
+            opacity: 0.8;
+        }
+        
+        .toggle-arrow {
+            font-size: 1.2em;
+            transition: transform 0.3s ease;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        
+        .toggle-arrow.expanded {
+            transform: rotate(180deg);
+        }
+        
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        
+        .collapsible-content.expanded {
+            max-height: 2000px; /* Large enough to fit content */
+        }
     </style>
 </head>
 <body>
@@ -1093,9 +1133,24 @@
             btn.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
         }
 
+        // Toggle Available Lines collapsible section
+        function toggleAvailableLines(headerElement) {
+            const content = headerElement.nextElementSibling;
+            const arrow = headerElement.querySelector('.toggle-arrow');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                arrow.classList.remove('expanded');
+            } else {
+                content.classList.add('expanded');
+                arrow.classList.add('expanded');
+            }
+        }
+
         // Load dark mode preference
         window.onload = function() {
-            const darkMode = localStorage.getItem('darkMode') === 'true';
+            // Default to dark mode if no preference is saved
+            const darkMode = localStorage.getItem('darkMode') !== 'false';
             if (darkMode) {
                 document.body.classList.add('dark-mode');
                 document.querySelector('.dark-mode-toggle').textContent = '☀️ Light Mode';
@@ -2027,8 +2082,11 @@
                     // Multiple lines - show all with hit rates
                     oddsCard = `
                         <div class="summary-card" style="grid-column: 1 / -1;">
-                            <div class="summary-label">Available Lines (${linesWithHitRates.length})</div>
-                            <div style="margin-top: 10px;">
+                            <div class="collapsible-header" onclick="toggleAvailableLines(this)">
+                                <div class="summary-label">Available Lines (${linesWithHitRates.length})</div>
+                                <span class="toggle-arrow">▼</span>
+                            </div>
+                            <div class="collapsible-content">
                                 ${linesWithHitRates.map(lineData => {
                                     const formattedOdds = lineData.odds > 0 ? `+${lineData.odds}` : lineData.odds;
                                     return `
