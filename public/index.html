@@ -1755,36 +1755,34 @@
                     lineObj = getMainLine(playerOdds[currentStatType]);
                 }
                 
-                if (lineObj) {
-                    lineValue = lineObj.line;
-                    const gameStr = lineObj.game;
-                    const teams = gameStr.split(' vs ');
-                    const playerTeamFull = player.teamAbbrevs;
-                    
-                    const teamFullNames = {
-                        'TOR': 'Toronto Maple Leafs', 'BOS': 'Boston Bruins', 'TBL': 'Tampa Bay Lightning',
-                        'FLA': 'Florida Panthers', 'MTL': 'Montreal Canadiens', 'OTT': 'Ottawa Senators',
-                        'BUF': 'Buffalo Sabres', 'DET': 'Detroit Red Wings', 'NYR': 'New York Rangers',
-                        'NYI': 'New York Islanders', 'NJD': 'New Jersey Devils', 'PIT': 'Pittsburgh Penguins',
-                        'WSH': 'Washington Capitals', 'PHI': 'Philadelphia Flyers', 'CBJ': 'Columbus Blue Jackets',
-                        'CAR': 'Carolina Hurricanes', 'NSH': 'Nashville Predators', 'WPG': 'Winnipeg Jets',
-                        'MIN': 'Minnesota Wild', 'COL': 'Colorado Avalanche', 'DAL': 'Dallas Stars',
-                        'CHI': 'Chicago Blackhawks', 'STL': 'St. Louis Blues', 'VGK': 'Vegas Golden Knights',
-                        'EDM': 'Edmonton Oilers', 'CGY': 'Calgary Flames', 'VAN': 'Vancouver Canucks',
-                        'SEA': 'Seattle Kraken', 'SJS': 'San Jose Sharks', 'ANA': 'Anaheim Ducks',
-                        'LAK': 'Los Angeles Kings', 'ARI': 'Arizona Coyotes', 'UTA': 'Utah Hockey Club', 'UTH': 'Utah Hockey Club'
-                    };
-                    
-                    const playerTeamFullName = teamFullNames[playerTeamFull];
-                    
-                    if (playerTeamFullName && teams[0].trim() === playerTeamFullName) {
-                        nextOpponent = teams[1].trim();
-                    } else {
-                        nextOpponent = teams[0].trim();
-                    }
-                    
-                    console.log('Next opponent detected:', nextOpponent);
+                lineValue = lineObj.line;
+                const gameStr = lineObj.game;
+                const teams = gameStr.split(' vs ');
+                const playerTeamFull = player.teamAbbrevs;
+                
+                const teamFullNames = {
+                    'TOR': 'Toronto Maple Leafs', 'BOS': 'Boston Bruins', 'TBL': 'Tampa Bay Lightning',
+                    'FLA': 'Florida Panthers', 'MTL': 'Montreal Canadiens', 'OTT': 'Ottawa Senators',
+                    'BUF': 'Buffalo Sabres', 'DET': 'Detroit Red Wings', 'NYR': 'New York Rangers',
+                    'NYI': 'New York Islanders', 'NJD': 'New Jersey Devils', 'PIT': 'Pittsburgh Penguins',
+                    'WSH': 'Washington Capitals', 'PHI': 'Philadelphia Flyers', 'CBJ': 'Columbus Blue Jackets',
+                    'CAR': 'Carolina Hurricanes', 'NSH': 'Nashville Predators', 'WPG': 'Winnipeg Jets',
+                    'MIN': 'Minnesota Wild', 'COL': 'Colorado Avalanche', 'DAL': 'Dallas Stars',
+                    'CHI': 'Chicago Blackhawks', 'STL': 'St. Louis Blues', 'VGK': 'Vegas Golden Knights',
+                    'EDM': 'Edmonton Oilers', 'CGY': 'Calgary Flames', 'VAN': 'Vancouver Canucks',
+                    'SEA': 'Seattle Kraken', 'SJS': 'San Jose Sharks', 'ANA': 'Anaheim Ducks',
+                    'LAK': 'Los Angeles Kings', 'ARI': 'Arizona Coyotes', 'UTA': 'Utah Hockey Club', 'UTH': 'Utah Hockey Club'
+                };
+                
+                const playerTeamFullName = teamFullNames[playerTeamFull];
+                
+                if (playerTeamFullName && teams[0].trim() === playerTeamFullName) {
+                    nextOpponent = teams[1].trim();
+                } else {
+                    nextOpponent = teams[0].trim();
                 }
+                
+                console.log('Next opponent detected:', nextOpponent);
             }
 
             let games = gameLog.gameLog;
@@ -2283,7 +2281,7 @@
                                     (nextOpponent.includes('Utah') && t.teamFullName.includes('Utah'))
                                 );
                             }
-                            if (oppTeamData && oppTeamData.goalsAgainstPerGame !== undefined && oppTeamData.goalsAgainstRank) {
+                            if (oppTeamData) {
                                 const mascot = teamMascots[nextOpponent] || teamMascots[oppTeamData.teamFullName] || nextOpponent.split(' ').pop();
                                 return `<div style="font-size: 0.95em; color: var(--text-primary); margin-top: 8px; font-weight: 600;">🎯 ${mascot} allow ${oppTeamData.goalsAgainstPerGame.toFixed(1)} goals/game | ${getOrdinal(oppTeamData.goalsAgainstRank)} most</div>`;
                             }
@@ -2311,7 +2309,7 @@
                                     (nextOpponent.includes('Utah') && t.teamFullName.includes('Utah'))
                                 );
                             }
-                            if (oppTeamData && oppTeamData.pointsAgainstPerGame !== undefined && oppTeamData.pointsAgainstRank) {
+                            if (oppTeamData) {
                                 const mascot = teamMascots[nextOpponent] || teamMascots[oppTeamData.teamFullName] || nextOpponent.split(' ').pop();
                                 const statLabel = currentStatType === 'points' ? 'points' : 'assists';
                                 return `<div style="font-size: 0.95em; color: var(--text-primary); margin-top: 8px; font-weight: 600;">🎯 ${mascot} allow ${oppTeamData.pointsAgainstPerGame.toFixed(1)} ${statLabel}/game | ${getOrdinal(oppTeamData.pointsAgainstRank)} most</div>`;
