@@ -1319,6 +1319,33 @@
             filterPlayers();
         }
 
+        // Helper function to find the main/default line (not alternate)
+        // Returns the most common line value, which is typically the "main" line
+        function getMainLine(linesArray) {
+            if (!linesArray || linesArray.length === 0) return null;
+            if (linesArray.length === 1) return linesArray[0];
+            
+            // Count frequency of each line value
+            const lineFrequency = {};
+            linesArray.forEach(lineObj => {
+                const lineValue = lineObj.line;
+                lineFrequency[lineValue] = (lineFrequency[lineValue] || 0) + 1;
+            });
+            
+            // Find the line value with highest frequency
+            let maxFrequency = 0;
+            let mainLineValue = null;
+            for (const [lineValue, frequency] of Object.entries(lineFrequency)) {
+                if (frequency > maxFrequency) {
+                    maxFrequency = frequency;
+                    mainLineValue = parseFloat(lineValue);
+                }
+            }
+            
+            // Return the first line object with that value
+            return linesArray.find(lineObj => lineObj.line === mainLineValue);
+        }
+
         function filterPlayers() {
             const searchTerm = document.getElementById('searchPlayer').value.toLowerCase();
             const hideNoLines = document.getElementById('hideNoLines').checked;
@@ -1390,12 +1417,12 @@
                 
                 let lineValue = 0.5;
                 if (hasLine) {
-                    // If a line filter is selected, use that specific line; otherwise use the first (default) line
+                    // If a line filter is selected, use that specific line; otherwise use the main/default line
                     if (selectedLine) {
                         const matchingLine = playerOdds[currentStatType].find(l => l.line == parseFloat(selectedLine));
-                        lineValue = matchingLine ? matchingLine.line : playerOdds[currentStatType][0].line;
+                        lineValue = matchingLine ? matchingLine.line : getMainLine(playerOdds[currentStatType]).line;
                     } else {
-                        lineValue = playerOdds[currentStatType][0].line; // Default to first line
+                        lineValue = getMainLine(playerOdds[currentStatType]).line;
                     }
                 }
                 
@@ -1506,7 +1533,8 @@
                         oddsInfo = playerOdds[currentStatType].find(l => l.line == parseFloat(selectedLine));
                     }
                     if (!oddsInfo) {
-                        oddsInfo = playerOdds[currentStatType][0]; // Default to first line
+                        // When "All Lines" is selected, show the main/default line (not alternate)
+                        oddsInfo = getMainLine(playerOdds[currentStatType]);
                     }
                     
                     const line = oddsInfo.line;
@@ -1563,12 +1591,12 @@
                 let lineValue = 0.5;
                 
                 if (playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0) {
-                    // Use filtered line if selected, otherwise use default (first) line
+                    // Use filtered line if selected, otherwise use main/default line
                     if (selectedLine) {
                         const matchingLine = playerOdds[currentStatType].find(l => l.line == parseFloat(selectedLine));
-                        lineValue = matchingLine ? matchingLine.line : playerOdds[currentStatType][0].line;
+                        lineValue = matchingLine ? matchingLine.line : getMainLine(playerOdds[currentStatType]).line;
                     } else {
-                        lineValue = playerOdds[currentStatType][0].line;
+                        lineValue = getMainLine(playerOdds[currentStatType]).line;
                     }
                 }
                 
@@ -1718,13 +1746,13 @@
             let nextOpponent = null;
             
             if (playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0) {
-                // Use filtered line if selected, otherwise use first line
+                // Use filtered line if selected, otherwise use main/default line
                 let lineObj;
                 if (selectedLine) {
                     lineObj = playerOdds[currentStatType].find(l => l.line == parseFloat(selectedLine));
                 }
                 if (!lineObj) {
-                    lineObj = playerOdds[currentStatType][0];
+                    lineObj = getMainLine(playerOdds[currentStatType]);
                 }
                 
                 lineValue = lineObj.line;
@@ -2114,12 +2142,14 @@
             const hasLines = playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0;
             const inWatchlist = hasLines && isInWatchlist(player.playerId, currentStatType);
             
+            // Get the main/default line for display in modal
+            const mainLine = hasLines ? getMainLine(playerOdds[currentStatType]) : null;
+            
             let starIcon = '';
-            if (hasLines) {
-                const firstLine = playerOdds[currentStatType][0]; // Use first line for watchlist
+            if (hasLines && mainLine) {
                 starIcon = `
                     <span class="star-icon ${inWatchlist ? 'active' : ''}" 
-                          onclick="event.stopPropagation(); toggleWatchlistFromModal(${player.playerId}, '${name}', '${currentStatType}', ${firstLine.line}, ${firstLine.odds}, '${firstLine.game}', '${firstLine.gameTime}')">
+                          onclick="event.stopPropagation(); toggleWatchlistFromModal(${player.playerId}, '${name}', '${currentStatType}', ${mainLine.line}, ${mainLine.odds}, '${mainLine.game}', '${mainLine.gameTime}')">
                         ${inWatchlist ? '⭐' : '☆'}
                     </span>
                 `;
@@ -2145,12 +2175,12 @@
                     ${oddsCard}
                 </div>
                 
-                ${hasLines ? `
+                ${hasLines && mainLine ? `
                     <div style="background: var(--warning-bg); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; transition: all 0.3s ease;">
                         <div style="font-size: 0.9em; color: var(--warning-text); margin-bottom: 5px; font-weight: 600;">🏒 This Game</div>
-                        <div style="font-size: 1.2em; font-weight: bold; color: var(--text-primary);">${playerOdds[currentStatType][0].game}</div>
-                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">${new Date(playerOdds[currentStatType][0].gameTime).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
-                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Odds from ${playerOdds[currentStatType][0].bookmaker}</div>
+                        <div style="font-size: 1.2em; font-weight: bold; color: var(--text-primary);">${mainLine.game}</div>
+                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">${new Date(mainLine.gameTime).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Odds from ${mainLine.bookmaker}</div>
                         ${isGoalieMode && nextOpponent ? (() => {
                             const oppTeamData = teamShotData.find(t => t.teamFullName === nextOpponent);
                             if (oppTeamData) {
