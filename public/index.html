@@ -733,6 +733,13 @@
             </div>
             
             <div class="control-group">
+                <label>Filter by Line:</label>
+                <select id="lineFilter" onchange="filterPlayers()" style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 150px;">
+                    <option value="">All Lines</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
                 <input type="checkbox" id="hideNoLines" onchange="filterPlayers()">
                 <label for="hideNoLines">Hide players without betting lines</label>
             </div>
@@ -1118,6 +1125,7 @@
                 
                 filterPlayers();
                 populateGameFilter();
+                populateLineFilter();
 
             } catch (error) {
                 container.innerHTML = `<div class="error"><strong>Error loading cached data:</strong> ${error.message}</div>`;
@@ -1170,6 +1178,32 @@
             console.log(`Populated ${uniqueGames.size} games in filter`);
         }
 
+        function populateLineFilter() {
+            const lineFilter = document.getElementById('lineFilter');
+            const uniqueLines = new Set();
+            
+            // Collect all unique betting line values for the current stat type
+            Object.values(bettingOdds).forEach(playerOdds => {
+                if (playerOdds[currentStatType] && playerOdds[currentStatType].line !== undefined) {
+                    uniqueLines.add(playerOdds[currentStatType].line);
+                }
+            });
+            
+            // Sort lines numerically
+            const sortedLines = Array.from(uniqueLines).sort((a, b) => a - b);
+            
+            lineFilter.innerHTML = '<option value="">All Lines</option>';
+            
+            sortedLines.forEach(line => {
+                const option = document.createElement('option');
+                option.value = line;
+                option.textContent = line;
+                lineFilter.appendChild(option);
+            });
+            
+            console.log(`Populated ${uniqueLines.size} unique lines for ${currentStatType}`);
+        }
+
         function selectStat(stat) {
             currentStatType = stat;
             isGoalieMode = (stat === 'saves');
@@ -1197,7 +1231,9 @@
             }
             
             document.getElementById('gameFilter').value = '';
+            document.getElementById('lineFilter').value = '';
             populateGameFilter();
+            populateLineFilter();
             
             filterPlayers();
         }
@@ -1206,6 +1242,7 @@
             const searchTerm = document.getElementById('searchPlayer').value.toLowerCase();
             const hideNoLines = document.getElementById('hideNoLines').checked;
             const selectedGame = document.getElementById('gameFilter').value;
+            const selectedLine = document.getElementById('lineFilter').value;
             
             const sourceData = isGoalieMode ? allGoaliesData : allPlayersData;
             
@@ -1227,7 +1264,12 @@
                     passesGameFilter = playerOdds[currentStatType].game === selectedGame;
                 }
                 
-                return matchesSearch && passesLineFilter && passesGameFilter;
+                let passesBettingLineFilter = true;
+                if (selectedLine && playerOdds && playerOdds[currentStatType]) {
+                    passesBettingLineFilter = playerOdds[currentStatType].line == parseFloat(selectedLine);
+                }
+                
+                return matchesSearch && passesLineFilter && passesGameFilter && passesBettingLineFilter;
             });
             
             displayPlayers();
