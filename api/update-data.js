@@ -2,6 +2,7 @@
 // OPTIMIZED: Uses FREE /events endpoint with time filters to get only today's games,
 // then fetches odds only for those games (instead of all upcoming games)
 // Typical savings: 40-80 credits per update depending on schedule
+// FIXED: Now checks ALL bookmakers for betting lines (not just first one)
 import { put } from '@vercel/blob';
 import { Client } from '@upstash/qstash';
 
@@ -249,68 +250,86 @@ export default async function handler(req, res) {
 
           const allPropsData = await Promise.all(gamePromises);
           
-          // Process all games at once
+          // FIXED: Process all games and ALL bookmakers (not just [0])
           for (const result of allPropsData) {
             if (!result) continue;
             const { event, data: propsData } = result;
 
-            const bookmaker = propsData.bookmakers?.[0];
-            if (!bookmaker) continue;
+            // Check if we have any bookmakers
+            if (!propsData.bookmakers || propsData.bookmakers.length === 0) {
+              console.log(`No bookmakers found for ${event.home_team} vs ${event.away_team}`);
+              continue;
+            }
 
-            bookmaker.markets?.forEach(market => {
-              market.outcomes?.forEach(outcome => {
-                const playerName = outcome.description;
-                if (!playerName) return;
-                if (!bettingOdds[playerName]) bettingOdds[playerName] = {};
+            console.log(`Processing ${event.home_team} vs ${event.away_team} - ${propsData.bookmakers.length} bookmakers available`);
+            
+            // Track which markets we found for this game (for debugging)
+            const marketsFound = new Set();
+            
+            // CRITICAL FIX: Loop through ALL bookmakers, not just the first one
+            propsData.bookmakers.forEach(bookmaker => {
+              if (!bookmaker) return;
 
-                if (outcome.name === 'Over' && outcome.point !== undefined) {
-                  if (market.key === 'player_points' && !bettingOdds[playerName].points) {
-                    bettingOdds[playerName].points = {
-                      line: outcome.point,
-                      odds: outcome.price,
-                      bookmaker: bookmaker.title,
-                      game: `${event.home_team} vs ${event.away_team}`,
-                      gameTime: event.commence_time
-                    };
-                  } else if (market.key === 'player_assists' && !bettingOdds[playerName].assists) {
-                    bettingOdds[playerName].assists = {
-                      line: outcome.point,
-                      odds: outcome.price,
-                      bookmaker: bookmaker.title,
-                      game: `${event.home_team} vs ${event.away_team}`,
-                      gameTime: event.commence_time
-                    };
-                  } else if (market.key === 'player_shots_on_goal' && !bettingOdds[playerName].shots) {
-                    bettingOdds[playerName].shots = {
-                      line: outcome.point,
-                      odds: outcome.price,
-                      bookmaker: bookmaker.title,
-                      game: `${event.home_team} vs ${event.away_team}`,
-                      gameTime: event.commence_time
-                    };
-                  } else if (market.key === 'player_total_saves' && !bettingOdds[playerName].saves) {
-                    bettingOdds[playerName].saves = {
-                      line: outcome.point,
-                      odds: outcome.price,
-                      bookmaker: bookmaker.title,
-                      game: `${event.home_team} vs ${event.away_team}`,
-                      gameTime: event.commence_time
-                    };
+              bookmaker.markets?.forEach(market => {
+                marketsFound.add(market.key);
+                
+                market.outcomes?.forEach(outcome => {
+                  const playerName = outcome.description;
+                  if (!playerName) return;
+                  if (!bettingOdds[playerName]) bettingOdds[playerName] = {};
+
+                  if (outcome.name === 'Over' && outcome.point !== undefined) {
+                    if (market.key === 'player_points' && !bettingOdds[playerName].points) {
+                      bettingOdds[playerName].points = {
+                        line: outcome.point,
+                        odds: outcome.price,
+                        bookmaker: bookmaker.title,
+                        game: `${event.home_team} vs ${event.away_team}`,
+                        gameTime: event.commence_time
+                      };
+                    } else if (market.key === 'player_assists' && !bettingOdds[playerName].assists) {
+                      bettingOdds[playerName].assists = {
+                        line: outcome.point,
+                        odds: outcome.price,
+                        bookmaker: bookmaker.title,
+                        game: `${event.home_team} vs ${event.away_team}`,
+                        gameTime: event.commence_time
+                      };
+                    } else if (market.key === 'player_shots_on_goal' && !bettingOdds[playerName].shots) {
+                      bettingOdds[playerName].shots = {
+                        line: outcome.point,
+                        odds: outcome.price,
+                        bookmaker: bookmaker.title,
+                        game: `${event.home_team} vs ${event.away_team}`,
+                        gameTime: event.commence_time
+                      };
+                    } else if (market.key === 'player_total_saves' && !bettingOdds[playerName].saves) {
+                      bettingOdds[playerName].saves = {
+                        line: outcome.point,
+                        odds: outcome.price,
+                        bookmaker: bookmaker.title,
+                        game: `${event.home_team} vs ${event.away_team}`,
+                        gameTime: event.commence_time
+                      };
+                    }
+                  } else if (market.key === 'player_goal_scorer_anytime' && outcome.name === 'Yes') {
+                    if (!bettingOdds[playerName].goals) {
+                      bettingOdds[playerName].goals = {
+                        line: 0.5,
+                        odds: outcome.price,
+                        bookmaker: bookmaker.title,
+                        game: `${event.home_team} vs ${event.away_team}`,
+                        gameTime: event.commence_time,
+                        type: 'anytime_scorer'
+                      };
+                    }
                   }
-                } else if (market.key === 'player_goal_scorer_anytime' && outcome.name === 'Yes') {
-                  if (!bettingOdds[playerName].goals) {
-                    bettingOdds[playerName].goals = {
-                      line: 0.5,
-                      odds: outcome.price,
-                      bookmaker: bookmaker.title,
-                      game: `${event.home_team} vs ${event.away_team}`,
-                      gameTime: event.commence_time,
-                      type: 'anytime_scorer'
-                    };
-                  }
-                }
+                });
               });
             });
+            
+            // Log which markets were found for debugging
+            console.log(`  Markets available: ${Array.from(marketsFound).join(', ') || 'none'}`);
           }
         }
         console.log(`✅ Loaded betting lines for ${Object.keys(bettingOdds).length} players (${Date.now() - startTime}ms)`);
