@@ -226,7 +226,8 @@ export default async function handler(req, res) {
           
           const gamePromises = todaysGames.map(async event => {
             const eventId = event.id;
-            const propsUrl = `https://api.the-odds-api.com/v4/sports/icehockey_nhl/events/${eventId}/odds?apiKey=${oddsApiKey}&regions=us&markets=player_points,player_goal_scorer_anytime,player_assists,player_shots_on_goal,player_total_saves&oddsFormat=american`;
+            // Include both standard and alternate markets for multiple line options per player
+            const propsUrl = `https://api.the-odds-api.com/v4/sports/icehockey_nhl/events/${eventId}/odds?apiKey=${oddsApiKey}&regions=us&markets=player_points,player_points_alternate,player_goal_scorer_anytime,player_assists,player_assists_alternate,player_shots_on_goal,player_shots_on_goal_alternate,player_total_saves,player_total_saves_alternate&oddsFormat=american`;
             
             try {
               const propsResponse = await fetch(propsUrl);
@@ -249,6 +250,21 @@ export default async function handler(req, res) {
           });
 
           const allPropsData = await Promise.all(gamePromises);
+          
+          // Helper function to add a line to a player's stat array
+          const addLine = (playerName, statType, lineData) => {
+            if (!bettingOdds[playerName]) bettingOdds[playerName] = {};
+            if (!bettingOdds[playerName][statType]) bettingOdds[playerName][statType] = [];
+            
+            // Check if this exact line already exists (same line value and bookmaker)
+            const exists = bettingOdds[playerName][statType].some(
+              existing => existing.line === lineData.line && existing.bookmaker === lineData.bookmaker
+            );
+            
+            if (!exists) {
+              bettingOdds[playerName][statType].push(lineData);
+            }
+          };
           
           // FIXED: Process all games and ALL bookmakers (not just [0])
           for (const result of allPropsData) {
@@ -276,53 +292,36 @@ export default async function handler(req, res) {
                 market.outcomes?.forEach(outcome => {
                   const playerName = outcome.description;
                   if (!playerName) return;
-                  if (!bettingOdds[playerName]) bettingOdds[playerName] = {};
+
+                  const lineData = {
+                    line: outcome.point,
+                    odds: outcome.price,
+                    bookmaker: bookmaker.title,
+                    game: `${event.home_team} vs ${event.away_team}`,
+                    gameTime: event.commence_time
+                  };
 
                   if (outcome.name === 'Over' && outcome.point !== undefined) {
-                    if (market.key === 'player_points' && !bettingOdds[playerName].points) {
-                      bettingOdds[playerName].points = {
-                        line: outcome.point,
-                        odds: outcome.price,
-                        bookmaker: bookmaker.title,
-                        game: `${event.home_team} vs ${event.away_team}`,
-                        gameTime: event.commence_time
-                      };
-                    } else if (market.key === 'player_assists' && !bettingOdds[playerName].assists) {
-                      bettingOdds[playerName].assists = {
-                        line: outcome.point,
-                        odds: outcome.price,
-                        bookmaker: bookmaker.title,
-                        game: `${event.home_team} vs ${event.away_team}`,
-                        gameTime: event.commence_time
-                      };
-                    } else if (market.key === 'player_shots_on_goal' && !bettingOdds[playerName].shots) {
-                      bettingOdds[playerName].shots = {
-                        line: outcome.point,
-                        odds: outcome.price,
-                        bookmaker: bookmaker.title,
-                        game: `${event.home_team} vs ${event.away_team}`,
-                        gameTime: event.commence_time
-                      };
-                    } else if (market.key === 'player_total_saves' && !bettingOdds[playerName].saves) {
-                      bettingOdds[playerName].saves = {
-                        line: outcome.point,
-                        odds: outcome.price,
-                        bookmaker: bookmaker.title,
-                        game: `${event.home_team} vs ${event.away_team}`,
-                        gameTime: event.commence_time
-                      };
+                    // Handle standard and alternate markets for each prop type
+                    if (market.key === 'player_points' || market.key === 'player_points_alternate') {
+                      addLine(playerName, 'points', lineData);
+                    } else if (market.key === 'player_assists' || market.key === 'player_assists_alternate') {
+                      addLine(playerName, 'assists', lineData);
+                    } else if (market.key === 'player_shots_on_goal' || market.key === 'player_shots_on_goal_alternate') {
+                      addLine(playerName, 'shots', lineData);
+                    } else if (market.key === 'player_total_saves' || market.key === 'player_total_saves_alternate') {
+                      addLine(playerName, 'saves', lineData);
                     }
                   } else if (market.key === 'player_goal_scorer_anytime' && outcome.name === 'Yes') {
-                    if (!bettingOdds[playerName].goals) {
-                      bettingOdds[playerName].goals = {
-                        line: 0.5,
-                        odds: outcome.price,
-                        bookmaker: bookmaker.title,
-                        game: `${event.home_team} vs ${event.away_team}`,
-                        gameTime: event.commence_time,
-                        type: 'anytime_scorer'
-                      };
-                    }
+                    // Goals is special - it's always 0.5 line with anytime odds
+                    addLine(playerName, 'goals', {
+                      line: 0.5,
+                      odds: outcome.price,
+                      bookmaker: bookmaker.title,
+                      game: `${event.home_team} vs ${event.away_team}`,
+                      gameTime: event.commence_time,
+                      type: 'anytime_scorer'
+                    });
                   }
                 });
               });
@@ -331,6 +330,15 @@ export default async function handler(req, res) {
             // Log which markets were found for debugging
             console.log(`  Markets available: ${Array.from(marketsFound).join(', ') || 'none'}`);
           }
+          
+          // Sort each player's lines by line value (ascending)
+          Object.values(bettingOdds).forEach(playerOdds => {
+            Object.keys(playerOdds).forEach(statType => {
+              if (Array.isArray(playerOdds[statType])) {
+                playerOdds[statType].sort((a, b) => a.line - b.line);
+              }
+            });
+          });
         }
         console.log(`✅ Loaded betting lines for ${Object.keys(bettingOdds).length} players (${Date.now() - startTime}ms)`);
         if (oddsCreditsUsed && todaysGamesCount > 0) {
