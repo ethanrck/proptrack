@@ -740,7 +740,7 @@
             </div>
             
             <div class="control-group">
-                <input type="checkbox" id="hideNoLines" onchange="filterPlayers()">
+                <input type="checkbox" id="hideNoLines" onchange="filterPlayers()" checked>
                 <label for="hideNoLines">Hide players without betting lines</label>
             </div>
         </div>
@@ -1183,9 +1183,12 @@
             const uniqueLines = new Set();
             
             // Collect all unique betting line values for the current stat type
+            // Lines are now stored as arrays, so we need to iterate through them
             Object.values(bettingOdds).forEach(playerOdds => {
-                if (playerOdds[currentStatType] && playerOdds[currentStatType].line !== undefined) {
-                    uniqueLines.add(playerOdds[currentStatType].line);
+                if (playerOdds[currentStatType] && Array.isArray(playerOdds[currentStatType])) {
+                    playerOdds[currentStatType].forEach(lineObj => {
+                        uniqueLines.add(lineObj.line);
+                    });
                 }
             });
             
@@ -1256,17 +1259,21 @@
                     (player.goalieFullName || 'Unknown Goalie') : 
                     (player.skaterFullName || 'Unknown Player');
                 const playerOdds = bettingOdds[name];
-                const hasLine = playerOdds && playerOdds[currentStatType];
+                
+                // Check if player has any lines for current stat
+                const hasLine = playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0;
                 const passesLineFilter = !hideNoLines || hasLine;
                 
+                // Check if ANY of the player's lines match the selected game
                 let passesGameFilter = true;
-                if (selectedGame && playerOdds && playerOdds[currentStatType]) {
-                    passesGameFilter = playerOdds[currentStatType].game === selectedGame;
+                if (selectedGame && hasLine) {
+                    passesGameFilter = playerOdds[currentStatType].some(lineObj => lineObj.game === selectedGame);
                 }
                 
+                // Check if ANY of the player's lines match the selected line value
                 let passesBettingLineFilter = true;
-                if (selectedLine && playerOdds && playerOdds[currentStatType]) {
-                    passesBettingLineFilter = playerOdds[currentStatType].line == parseFloat(selectedLine);
+                if (selectedLine && hasLine) {
+                    passesBettingLineFilter = playerOdds[currentStatType].some(lineObj => lineObj.line == parseFloat(selectedLine));
                 }
                 
                 return matchesSearch && passesLineFilter && passesGameFilter && passesBettingLineFilter;
@@ -1294,17 +1301,24 @@
 
         function displayPlayers() {
             const container = document.getElementById('playersContainer');
+            const selectedLine = document.getElementById('lineFilter').value;
             
             const playersWithHitRates = filteredPlayers.map(player => {
                 const name = isGoalieMode ? 
                     (player.goalieFullName || 'Unknown Goalie') : 
                     (player.skaterFullName || 'Unknown Player');
                 const playerOdds = bettingOdds[name];
-                const hasLine = playerOdds && playerOdds[currentStatType];
+                const hasLine = playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0;
                 
                 let lineValue = 0.5;
                 if (hasLine) {
-                    lineValue = playerOdds[currentStatType].line;
+                    // If a line filter is selected, use that specific line; otherwise use the first (default) line
+                    if (selectedLine) {
+                        const matchingLine = playerOdds[currentStatType].find(l => l.line == parseFloat(selectedLine));
+                        lineValue = matchingLine ? matchingLine.line : playerOdds[currentStatType][0].line;
+                    } else {
+                        lineValue = playerOdds[currentStatType][0].line; // Default to first line
+                    }
                 }
                 
                 const gameLogSource = isGoalieMode ? allGoalieGameLogs : allGameLogs;
@@ -1408,7 +1422,15 @@
                 let oddsDisplay = '';
                 
                 if (hasLine) {
-                    const oddsInfo = playerOdds[currentStatType];
+                    // Get the line to display based on filter
+                    let oddsInfo;
+                    if (selectedLine) {
+                        oddsInfo = playerOdds[currentStatType].find(l => l.line == parseFloat(selectedLine));
+                    }
+                    if (!oddsInfo) {
+                        oddsInfo = playerOdds[currentStatType][0]; // Default to first line
+                    }
+                    
                     const line = oddsInfo.line;
                     const price = oddsInfo.odds;
                     const formattedOdds = price > 0 ? `+${price}` : price;
@@ -1453,6 +1475,8 @@
         }
 
         function updateAllHitRates() {
+            const selectedLine = document.getElementById('lineFilter').value;
+            
             filteredPlayers.forEach(player => {
                 const name = isGoalieMode ? 
                     (player.goalieFullName || 'Unknown Goalie') : 
@@ -1460,8 +1484,14 @@
                 const playerOdds = bettingOdds[name];
                 let lineValue = 0.5;
                 
-                if (playerOdds && playerOdds[currentStatType]) {
-                    lineValue = playerOdds[currentStatType].line;
+                if (playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0) {
+                    // Use filtered line if selected, otherwise use default (first) line
+                    if (selectedLine) {
+                        const matchingLine = playerOdds[currentStatType].find(l => l.line == parseFloat(selectedLine));
+                        lineValue = matchingLine ? matchingLine.line : playerOdds[currentStatType][0].line;
+                    } else {
+                        lineValue = playerOdds[currentStatType][0].line;
+                    }
                 }
                 
                 const gameLogSource = isGoalieMode ? allGoalieGameLogs : allGameLogs;
@@ -1605,12 +1635,22 @@
                 (player.skaterFullName || 'Unknown Player');
             
             const playerOdds = bettingOdds[name];
+            const selectedLine = document.getElementById('lineFilter').value;
             let lineValue = 0.5;
             let nextOpponent = null;
             
-            if (playerOdds && playerOdds[currentStatType]) {
-                lineValue = playerOdds[currentStatType].line;
-                const gameStr = playerOdds[currentStatType].game;
+            if (playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0) {
+                // Use filtered line if selected, otherwise use first line
+                let lineObj;
+                if (selectedLine) {
+                    lineObj = playerOdds[currentStatType].find(l => l.line == parseFloat(selectedLine));
+                }
+                if (!lineObj) {
+                    lineObj = playerOdds[currentStatType][0];
+                }
+                
+                lineValue = lineObj.line;
+                const gameStr = lineObj.game;
                 const teams = gameStr.split(' vs ');
                 const playerTeamFull = player.teamAbbrevs;
                 
@@ -1909,37 +1949,96 @@
             }
             
             let oddsCard = '';
-            if (playerOdds && playerOdds[currentStatType]) {
-                const oddsInfo = playerOdds[currentStatType];
-                const formattedOdds = oddsInfo.odds > 0 ? `+${oddsInfo.odds}` : oddsInfo.odds;
+            if (playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0) {
+                const allLines = playerOdds[currentStatType];
                 
-                let oddsLabel = 'Betting Line';
-                let oddsValue = `O/U ${oddsInfo.line} ${formattedOdds}`;
+                // Calculate hit rate for each line
+                const linesWithHitRates = allLines.map(lineObj => {
+                    let hits = 0;
+                    games.forEach(game => {
+                        let statValue = 0;
+                        if (isGoalieMode) {
+                            const shotsAgainst = game.shotsAgainst || 0;
+                            const goalsAgainst = game.goalsAgainst || 0;
+                            statValue = shotsAgainst - goalsAgainst;
+                        } else {
+                            if (currentStatType === 'points') statValue = game.points || 0;
+                            else if (currentStatType === 'goals') statValue = game.goals || 0;
+                            else if (currentStatType === 'assists') statValue = game.assists || 0;
+                            else if (currentStatType === 'shots') statValue = game.shots || 0;
+                        }
+                        if (statValue > lineObj.line) hits++;
+                    });
+                    
+                    const hitRate = games.length > 0 ? ((hits / games.length) * 100).toFixed(1) : 0;
+                    const colorClass = getHitRateColor(parseFloat(hitRate));
+                    
+                    return {
+                        ...lineObj,
+                        hits,
+                        hitRate,
+                        colorClass
+                    };
+                });
                 
-                if (currentStatType === 'goals' && oddsInfo.type === 'anytime_scorer') {
-                    oddsLabel = 'Anytime Goal Scorer';
-                    oddsValue = formattedOdds;
+                if (linesWithHitRates.length === 1) {
+                    // Single line - show traditional card
+                    const lineData = linesWithHitRates[0];
+                    const formattedOdds = lineData.odds > 0 ? `+${lineData.odds}` : lineData.odds;
+                    
+                    let oddsLabel = 'Betting Line';
+                    let oddsValue = `O/U ${lineData.line} ${formattedOdds}`;
+                    
+                    if (currentStatType === 'goals' && lineData.type === 'anytime_scorer') {
+                        oddsLabel = 'Anytime Goal Scorer';
+                        oddsValue = formattedOdds;
+                    }
+                    
+                    oddsCard = `
+                        <div class="summary-card">
+                            <div class="summary-label">${oddsLabel}</div>
+                            <div class="summary-value" style="color: #e67e22; font-size: 1.5em;">${oddsValue}</div>
+                        </div>
+                    `;
+                } else {
+                    // Multiple lines - show all with hit rates
+                    oddsCard = `
+                        <div class="summary-card" style="grid-column: 1 / -1;">
+                            <div class="summary-label">Available Lines (${linesWithHitRates.length})</div>
+                            <div style="margin-top: 10px;">
+                                ${linesWithHitRates.map(lineData => {
+                                    const formattedOdds = lineData.odds > 0 ? `+${lineData.odds}` : lineData.odds;
+                                    return `
+                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--card-bg); margin: 5px 0; border-radius: 6px; border-left: 3px solid #e67e22;">
+                                            <div>
+                                                <span style="font-weight: bold; color: #e67e22; font-size: 1.1em;">O/U ${lineData.line}</span>
+                                                <span style="color: var(--text-secondary); font-size: 0.9em; margin-left: 8px;">${formattedOdds}</span>
+                                                <span style="color: var(--text-secondary); font-size: 0.8em; margin-left: 8px;">(${lineData.bookmaker})</span>
+                                            </div>
+                                            <div>
+                                                <span class="${lineData.colorClass}" style="font-weight: bold; font-size: 1em;">${lineData.hitRate}%</span>
+                                                <span style="color: var(--text-secondary); font-size: 0.9em; margin-left: 5px;">(${lineData.hits}/${games.length})</span>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
                 }
-                
-                oddsCard = `
-                    <div class="summary-card">
-                        <div class="summary-label">${oddsLabel}</div>
-                        <div class="summary-value" style="color: #e67e22; font-size: 1.5em;">${oddsValue}</div>
-                    </div>
-                `;
             }
 
             const modalContent = document.getElementById('modalContent');
             
-            const inWatchlist = playerOdds && playerOdds[currentStatType] && 
-                isInWatchlist(player.playerId, currentStatType);
+            const hasLines = playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0;
+            const inWatchlist = hasLines && isInWatchlist(player.playerId, currentStatType);
             
             let starIcon = '';
-            if (playerOdds && playerOdds[currentStatType]) {
-                const oddsInfo = playerOdds[currentStatType];
+            if (hasLines) {
+                const firstLine = playerOdds[currentStatType][0]; // Use first line for watchlist
                 starIcon = `
                     <span class="star-icon ${inWatchlist ? 'active' : ''}" 
-                          onclick="event.stopPropagation(); toggleWatchlistFromModal(${player.playerId}, '${name}', '${currentStatType}', ${oddsInfo.line}, ${oddsInfo.odds}, '${oddsInfo.game}', '${oddsInfo.gameTime}')">
+                          onclick="event.stopPropagation(); toggleWatchlistFromModal(${player.playerId}, '${name}', '${currentStatType}', ${firstLine.line}, ${firstLine.odds}, '${firstLine.game}', '${firstLine.gameTime}')">
                         ${inWatchlist ? '⭐' : '☆'}
                     </span>
                 `;
@@ -1965,12 +2064,12 @@
                     </div>
                 </div>
                 
-                ${playerOdds && playerOdds[currentStatType] ? `
+                ${hasLines ? `
                     <div style="background: var(--warning-bg); padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center; transition: all 0.3s ease;">
                         <div style="font-size: 0.9em; color: var(--warning-text); margin-bottom: 5px; font-weight: 600;">🏒 This Game</div>
-                        <div style="font-size: 1.2em; font-weight: bold; color: var(--text-primary);">${playerOdds[currentStatType].game}</div>
-                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">${new Date(playerOdds[currentStatType].gameTime).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
-                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Odds from ${playerOdds[currentStatType].bookmaker}</div>
+                        <div style="font-size: 1.2em; font-weight: bold; color: var(--text-primary);">${playerOdds[currentStatType][0].game}</div>
+                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">${new Date(playerOdds[currentStatType][0].gameTime).toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</div>
+                        <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">Odds from ${playerOdds[currentStatType][0].bookmaker}</div>
                         ${isGoalieMode && nextOpponent ? (() => {
                             const oppTeamData = teamShotData.find(t => t.teamFullName === nextOpponent);
                             if (oppTeamData) {
