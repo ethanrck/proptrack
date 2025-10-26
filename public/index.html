@@ -814,6 +814,19 @@
         let watchlist = [];
         let selectedParlayPlayers = [];
 
+        // Helper function to normalize betting odds (handles both old object and new array format)
+        function getLinesArray(playerOdds, statType) {
+            if (!playerOdds || !playerOdds[statType]) {
+                return [];
+            }
+            // If it's already an array, return it
+            if (Array.isArray(playerOdds[statType])) {
+                return playerOdds[statType];
+            }
+            // If it's an old-format object, wrap it in an array for compatibility
+            return [playerOdds[statType]];
+        }
+
         // Load watchlist from localStorage on page load
         function loadWatchlist() {
             const saved = localStorage.getItem('nhlWatchlist');
@@ -1137,21 +1150,31 @@
             const gameFilter = document.getElementById('gameFilter');
             const uniqueGames = new Set();
             
+            // Iterate through betting odds and collect unique games
             Object.values(bettingOdds).forEach(playerOdds => {
                 Object.values(playerOdds).forEach(statOdds => {
-                    if (statOdds.game) {
-                        uniqueGames.add(statOdds.game);
+                    // statOdds is now an array of line objects
+                    if (Array.isArray(statOdds)) {
+                        statOdds.forEach(lineObj => {
+                            if (lineObj.game) {
+                                uniqueGames.add(lineObj.game);
+                            }
+                        });
                     }
                 });
             });
             
             const gamesWithTime = Array.from(uniqueGames).map(game => {
                 let gameTime = null;
+                // Find the gameTime for this game
                 for (const playerOdds of Object.values(bettingOdds)) {
                     for (const statOdds of Object.values(playerOdds)) {
-                        if (statOdds.game === game) {
-                            gameTime = new Date(statOdds.gameTime);
-                            break;
+                        if (Array.isArray(statOdds)) {
+                            const lineObj = statOdds.find(l => l.game === game);
+                            if (lineObj) {
+                                gameTime = new Date(lineObj.gameTime);
+                                break;
+                            }
                         }
                     }
                     if (gameTime) break;
