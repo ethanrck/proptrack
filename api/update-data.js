@@ -85,6 +85,12 @@ export default async function handler(req, res) {
       teamFullName: team.teamFullName,
       shotsPerGame: (team.shotsForPerGame || 0),
       shotsAgainstPerGame: (team.shotsAgainstPerGame || 0),
+      goalsPerGame: (team.goalsForPerGame || 0),
+      goalsAgainstPerGame: (team.goalsAgainstPerGame || 0),
+      // Use actual points data from API if available, otherwise estimate
+      // Points = Goals + Assists (typical ratio is ~1.5 assists per goal in NHL)
+      pointsPerGame: team.pointsForPerGame || ((team.goalsForPerGame || 0) * 2.5),
+      pointsAgainstPerGame: team.pointsAgainstPerGame || ((team.goalsAgainstPerGame || 0) * 2.5),
       gamesPlayed: team.gamesPlayed || 0
     })).sort((a, b) => b.shotsPerGame - a.shotsPerGame);
 
@@ -99,8 +105,28 @@ export default async function handler(req, res) {
       const originalTeam = teamShotData.find(t => t.teamFullName === team.teamFullName);
       originalTeam.defensiveRank = index + 1;
     });
+    
+    // Add goals against rank (1 = allows most goals AGAINST - worst defense)
+    const sortedByGoalsAgainst = [...teamShotData].sort((a, b) => b.goalsAgainstPerGame - a.goalsAgainstPerGame);
+    sortedByGoalsAgainst.forEach((team, index) => {
+      const originalTeam = teamShotData.find(t => t.teamFullName === team.teamFullName);
+      originalTeam.goalsAgainstRank = index + 1;
+    });
+    
+    // Add points against rank (1 = allows most points AGAINST - worst defense)
+    const sortedByPointsAgainst = [...teamShotData].sort((a, b) => b.pointsAgainstPerGame - a.pointsAgainstPerGame);
+    sortedByPointsAgainst.forEach((team, index) => {
+      const originalTeam = teamShotData.find(t => t.teamFullName === team.teamFullName);
+      originalTeam.pointsAgainstRank = index + 1;
+    });
 
     console.log(`Loaded stats for ${teamShotData.length} teams (${Date.now() - startTime}ms)`);
+    
+    // Debug: Check if NHL API provides points data directly
+    if (teamStats[0]) {
+      const hasPointsData = teamStats[0].pointsForPerGame !== undefined;
+      console.log(`NHL API ${hasPointsData ? 'PROVIDES' : 'DOES NOT PROVIDE'} pointsForPerGame - using ${hasPointsData ? 'actual' : 'estimated'} data`);
+    }
 
     // Step 4: Fetch betting odds (TODAY'S GAMES ONLY) - OPTIMIZED VERSION
     console.log('Fetching betting odds...');
@@ -298,7 +324,8 @@ export default async function handler(req, res) {
                     odds: outcome.price,
                     bookmaker: bookmaker.title,
                     game: `${event.home_team} vs ${event.away_team}`,
-                    gameTime: event.commence_time
+                    gameTime: event.commence_time,
+                    isAlternate: market.key.includes('_alternate') // Flag alternate lines
                   };
 
                   if (outcome.name === 'Over' && outcome.point !== undefined) {
@@ -320,7 +347,8 @@ export default async function handler(req, res) {
                       bookmaker: bookmaker.title,
                       game: `${event.home_team} vs ${event.away_team}`,
                       gameTime: event.commence_time,
-                      type: 'anytime_scorer'
+                      type: 'anytime_scorer',
+                      isAlternate: false
                     });
                   }
                 });
