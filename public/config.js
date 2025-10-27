@@ -1,10 +1,13 @@
 // CONFIG.js - Configuration file for PropTrack
 // ⚠️ IMPORTANT: Update these values before deployment
 
-// 1. UPDATE THIS URL TO YOUR VERCEL DEPLOYMENT
-// Example: 'https://your-app-name.vercel.app'
-// For local development: 'http://localhost:3000'
-const API_BASE_URL = 'https://proptrack-rho.vercel.app';
+// 1. AUTO-DETECT API URL OR SET MANUALLY
+// If frontend and backend are on the same domain, use relative path
+// Otherwise, specify the full backend URL
+const API_BASE_URL = window.location.origin; // Auto-detect current domain
+
+// For separate backend, uncomment and update:
+// const API_BASE_URL = 'https://proptrack-rho.vercel.app';
 
 // 2. ENVIRONMENT VARIABLES TO SET IN VERCEL
 // Go to Vercel Dashboard > Your Project > Settings > Environment Variables
