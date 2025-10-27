@@ -1327,7 +1327,32 @@
             
             // PRIORITY 1: Filter to non-alternate lines only if available
             const nonAlternateLines = linesArray.filter(lineObj => !lineObj.isAlternate);
-            const linesToUse = nonAlternateLines.length > 0 ? nonAlternateLines : linesArray;
+            let linesToUse = nonAlternateLines.length > 0 ? nonAlternateLines : linesArray;
+            
+            // FALLBACK: Smart detection for shots - 0.5 is almost always an alternate
+            // Main shot lines are typically 2.5-4.5
+            if (linesToUse === linesArray && currentStatType === 'shots') {
+                const reasonableLines = linesArray.filter(lineObj => lineObj.line >= 1.5);
+                if (reasonableLines.length > 0) {
+                    linesToUse = reasonableLines;
+                }
+            }
+            
+            // FALLBACK: For any stat, filter out extreme outliers if we have better options
+            if (linesToUse === linesArray && linesArray.length > 2) {
+                const lineValues = linesArray.map(l => l.line).sort((a, b) => a - b);
+                const median = lineValues[Math.floor(lineValues.length / 2)];
+                const iqr = lineValues[Math.floor(lineValues.length * 0.75)] - lineValues[Math.floor(lineValues.length * 0.25)];
+                
+                // Filter out lines more than 2x IQR away from median
+                const filteredLines = linesArray.filter(lineObj => {
+                    return Math.abs(lineObj.line - median) <= (iqr * 2 + 0.5);
+                });
+                
+                if (filteredLines.length > 0) {
+                    linesToUse = filteredLines;
+                }
+            }
             
             if (linesToUse.length === 1) return linesToUse[0];
             
