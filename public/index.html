@@ -1320,27 +1320,32 @@
         }
 
         // Helper function to find the main/default line (not alternate)
-        // Prioritizes lines from major bookmakers and uses median for ties
+        // Prioritizes non-alternate lines from the API, then major bookmakers
         function getMainLine(linesArray) {
             if (!linesArray || linesArray.length === 0) return null;
             if (linesArray.length === 1) return linesArray[0];
             
-            // Major bookmakers that typically have the "main" line
+            // PRIORITY 1: Filter to non-alternate lines only if available
+            const nonAlternateLines = linesArray.filter(lineObj => !lineObj.isAlternate);
+            const linesToUse = nonAlternateLines.length > 0 ? nonAlternateLines : linesArray;
+            
+            if (linesToUse.length === 1) return linesToUse[0];
+            
+            // PRIORITY 2: Major bookmakers that typically have the "main" line
             const majorBookmakers = ['DraftKings', 'FanDuel', 'BetMGM', 'Caesars', 'BetRivers'];
             
-            // First, try to find a line from a major bookmaker
             for (const bookmaker of majorBookmakers) {
-                const mainLine = linesArray.find(lineObj => 
+                const mainLine = linesToUse.find(lineObj => 
                     lineObj.bookmaker && lineObj.bookmaker.includes(bookmaker)
                 );
                 if (mainLine) return mainLine;
             }
             
-            // If no major bookmaker found, use frequency + median approach
+            // PRIORITY 3: Use frequency + median approach
             const lineFrequency = {};
             const lineValues = [];
             
-            linesArray.forEach(lineObj => {
+            linesToUse.forEach(lineObj => {
                 const lineValue = lineObj.line;
                 lineFrequency[lineValue] = (lineFrequency[lineValue] || 0) + 1;
                 lineValues.push(lineValue);
@@ -1373,8 +1378,8 @@
                 mainLineValue = candidateLines[0];
             }
             
-            // Return the first line object with that value
-            return linesArray.find(lineObj => lineObj.line === mainLineValue);
+            // Return the first line object with that value from our filtered list
+            return linesToUse.find(lineObj => lineObj.line === mainLineValue);
         }
 
         function filterPlayers() {
