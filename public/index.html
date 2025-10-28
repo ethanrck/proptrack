@@ -783,6 +783,11 @@
                 <input type="checkbox" id="hideNoLines" onchange="filterPlayers()" checked>
                 <label for="hideNoLines">Hide players without betting lines</label>
             </div>
+            
+            <div class="control-group">
+                <input type="checkbox" id="hideStartedGames" onchange="filterPlayers()">
+                <label for="hideStartedGames">Hide games that have started</label>
+            </div>
         </div>
         
         <div style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px; transition: all 0.3s ease;">
@@ -1410,10 +1415,12 @@
         function filterPlayers() {
             const searchTerm = document.getElementById('searchPlayer').value.toLowerCase();
             const hideNoLines = document.getElementById('hideNoLines').checked;
+            const hideStartedGames = document.getElementById('hideStartedGames').checked;
             const selectedGame = document.getElementById('gameFilter').value;
             const selectedLine = document.getElementById('lineFilter').value;
             
             const sourceData = isGoalieMode ? allGoaliesData : allPlayersData;
+            const currentTime = new Date();
             
             filteredPlayers = sourceData.filter(player => {
                 const fullName = isGoalieMode ? 
@@ -1430,6 +1437,19 @@
                 const hasLine = playerOdds && Array.isArray(playerOdds[currentStatType]) && playerOdds[currentStatType].length > 0;
                 const passesLineFilter = !hideNoLines || hasLine;
                 
+                // Check if player has any games that haven't started yet
+                let hasUpcomingGame = true;
+                if (hideStartedGames && hasLine) {
+                    hasUpcomingGame = playerOdds[currentStatType].some(lineObj => {
+                        if (lineObj.gameTime) {
+                            const gameTime = new Date(lineObj.gameTime);
+                            return gameTime > currentTime;
+                        }
+                        // If no gameTime, assume it hasn't started yet
+                        return true;
+                    });
+                }
+                
                 // Check if ANY of the player's lines match the selected game
                 let passesGameFilter = true;
                 if (selectedGame && hasLine) {
@@ -1442,7 +1462,7 @@
                     passesBettingLineFilter = playerOdds[currentStatType].some(lineObj => lineObj.line == parseFloat(selectedLine));
                 }
                 
-                return matchesSearch && passesLineFilter && passesGameFilter && passesBettingLineFilter;
+                return matchesSearch && passesLineFilter && passesGameFilter && passesBettingLineFilter && hasUpcomingGame;
             });
             
             displayPlayers();
