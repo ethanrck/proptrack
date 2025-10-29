@@ -1884,7 +1884,9 @@
 
                 const opponent = game.opponentAbbrev || 'N/A';
                 const homeAway = game.homeRoadFlag === 'H' ? 'vs' : '@';
-                const gameDate = new Date(game.gameDate).toLocaleDateString();
+                // Fix timezone issue: parse date string as local date, not UTC
+                const [year, month, day] = game.gameDate.split('-');
+                const gameDate = new Date(year, month - 1, day).toLocaleDateString();
 
                 if (isGoalieMode) {
                     const teamFullNames = {
