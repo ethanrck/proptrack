@@ -752,7 +752,7 @@
             
             <div class="control-group">
                 <label>Filter by Line:</label>
-                <select id="lineFilter" onchange="filterPlayers()" style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 150px;">
+                <select id="lineFilter" onchange="handleFilterChange()" style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 150px;">
                     <option value="">All Lines</option>
                 </select>
             </div>
@@ -832,6 +832,7 @@
         let teamShotData = [];
         let filteredPlayers = [];
         let playerHitRates = {};
+        let teamHitRates = {};
         let bettingOdds = {};
         let currentStatType = 'points';
         let isGoalieMode = false;
@@ -1482,6 +1483,14 @@
             displayPlayers();
         }
 
+        function handleFilterChange() {
+            if (isTeamTotalsMode) {
+                displayTeams();
+            } else {
+                filterPlayers();
+            }
+        }
+
         function getHitRateColor(hitRate) {
             if (hitRate >= 70) return 'hit-rate-excellent';
             if (hitRate >= 50) return 'hit-rate-good';
@@ -1652,8 +1661,8 @@
                         // Display line and odds vertically stacked with individual click handlers
                         oddsDisplay = `<div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px; background: var(--warning-bg); padding: 8px; border-radius: 6px;">
                             <div style="font-weight: bold; font-size: 1.5em; color: #e67e22; pointer-events: none;">${line}</div>
-                            ${overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${overOdds}, '${game}', '${gameTime}', 'over')" style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px;">O ${overOdds > 0 ? '+' : ''}${overOdds}</div>` : ''}
-                            ${underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${underOdds}, '${game}', '${gameTime}', 'under')" style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px;">U ${underOdds > 0 ? '+' : ''}${underOdds}</div>` : ''}
+                            ${overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${overOdds}, '${game}', '${gameTime}', 'over')" style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${overOdds > 0 ? '+' : ''}${overOdds}</div>` : ''}
+                            ${underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${underOdds}, '${game}', '${gameTime}', 'under')" style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${underOdds > 0 ? '+' : ''}${underOdds}</div>` : ''}
                         </div>`;
                     }
                 }
@@ -1692,7 +1701,7 @@
             updateAllHitRates();
         }
 
-        function displayTeams() {
+        async function displayTeams() {
             const container = document.getElementById('playersContainer');
             const hideStartedGames = document.getElementById('hideStartedGames').checked;
             const selectedGame = document.getElementById('gameFilter').value;
@@ -1787,15 +1796,8 @@
                     minute: '2-digit' 
                 });
                 
-                // Find team in teamShotData to get stats
-                const teamStats = teamShotData.find(t => 
-                    t.teamFullName === teamName || 
-                    t.abbrev === teamName ||
-                    t.teamFullName.includes(teamName)
-                );
-                
-                const goalsPerGame = teamStats ? teamStats.goalsPerGame.toFixed(1) : 'N/A';
-                const gamesPlayed = teamStats ? teamStats.gamesPlayed : 0;
+                // Create a unique ID for this team card
+                const teamId = `${teamName.replace(/\s+/g, '-')}-${game.replace(/\s+/g, '-')}`;
                 
                 return `
                     <div class="player-card" onclick="showTeamLog('${teamName}', '${game}')">
@@ -1803,19 +1805,14 @@
                             <div class="player-name">${teamName}</div>
                             <div class="odds-line" style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px;">
                                 <div style="font-weight: bold; font-size: 1.5em; color: #e67e22;">${displayLine.line}</div>
-                                ${overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.overOdds}, '${game}', '${gameTime}', 'over')" style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px;">O ${overOdds}</div>` : ''}
-                                ${underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.underOdds}, '${game}', '${gameTime}', 'under')" style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px;">U ${underOdds}</div>` : ''}
+                                ${overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.overOdds}, '${game}', '${gameTime}', 'over')" style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${overOdds}</div>` : ''}
+                                ${underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.underOdds}, '${game}', '${gameTime}', 'under')" style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${underOdds}</div>` : ''}
                             </div>
                         </div>
                         <div class="player-team">${game}</div>
                         <div class="player-stats">
-                            <div class="stat">
-                                <div class="stat-label">Season Avg</div>
-                                <div class="stat-value">${goalsPerGame}</div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-label">Games Played</div>
-                                <div class="stat-value">${gamesPlayed}</div>
+                            <div class="stat" id="hitrate-${teamId}" style="grid-column: span 2;">
+                                <div class="stat-label">Loading hit rate...</div>
                             </div>
                             <div class="stat">
                                 <div class="stat-label">Game Time</div>
@@ -1827,6 +1824,130 @@
             }).join('');
             
             container.innerHTML = html;
+            
+            // Calculate hit rates for all displayed teams
+            await updateAllTeamHitRates(teamsList, selectedLine);
+        }
+
+        async function updateAllTeamHitRates(teamsList, selectedLine) {
+            // Team name to NHL abbreviation mapping
+            const teamNameToAbbrev = {
+                'Anaheim Ducks': 'ANA', 'Arizona Coyotes': 'ARI', 'Boston Bruins': 'BOS', 'Buffalo Sabres': 'BUF',
+                'Calgary Flames': 'CGY', 'Carolina Hurricanes': 'CAR', 'Chicago Blackhawks': 'CHI', 'Colorado Avalanche': 'COL',
+                'Columbus Blue Jackets': 'CBJ', 'Dallas Stars': 'DAL', 'Detroit Red Wings': 'DET', 'Edmonton Oilers': 'EDM',
+                'Florida Panthers': 'FLA', 'Los Angeles Kings': 'LAK', 'Minnesota Wild': 'MIN', 'Montreal Canadiens': 'MTL',
+                'Nashville Predators': 'NSH', 'New Jersey Devils': 'NJD', 'New York Islanders': 'NYI', 'New York Rangers': 'NYR',
+                'Ottawa Senators': 'OTT', 'Philadelphia Flyers': 'PHI', 'Pittsburgh Penguins': 'PIT', 'San Jose Sharks': 'SJS',
+                'Seattle Kraken': 'SEA', 'St. Louis Blues': 'STL', 'Tampa Bay Lightning': 'TBL', 'Toronto Maple Leafs': 'TOR',
+                'Utah Hockey Club': 'UTA', 'Utah Mammoth': 'UTA', 'Vancouver Canucks': 'VAN', 'Vegas Golden Knights': 'VGK', 
+                'Washington Capitals': 'WSH', 'Winnipeg Jets': 'WPG'
+            };
+
+            // Process teams in parallel
+            const promises = teamsList.map(async (teamData) => {
+                const { teamName, game, mainLines, allLines } = teamData;
+                const teamId = `${teamName.replace(/\s+/g, '-')}-${game.replace(/\s+/g, '-')}`;
+                const hitRateDiv = document.getElementById(`hitrate-${teamId}`);
+                
+                if (!hitRateDiv) return;
+
+                // Find team stats
+                const teamStats = teamShotData.find(t => 
+                    t.teamFullName === teamName || 
+                    t.abbrev === teamName ||
+                    t.teamFullName.includes(teamName)
+                );
+
+                if (!teamStats) {
+                    hitRateDiv.innerHTML = '<div class="stat-label">Team stats not found</div>';
+                    return;
+                }
+
+                const teamAbbrev = teamNameToAbbrev[teamStats.teamFullName] || teamNameToAbbrev[teamName] || teamStats.abbrev;
+
+                if (!teamAbbrev) {
+                    hitRateDiv.innerHTML = '<div class="stat-label">Team abbreviation not found</div>';
+                    return;
+                }
+
+                // Get the line value to use for hit rate calculation
+                let displayLine;
+                if (selectedLine) {
+                    displayLine = allLines.find(l => l.line == parseFloat(selectedLine));
+                } else {
+                    if (mainLines && mainLines.length > 0) {
+                        displayLine = getMainLine(mainLines);
+                    } else if (allLines && allLines.length > 0) {
+                        displayLine = getMainLine(allLines);
+                    }
+                }
+
+                if (!displayLine) {
+                    hitRateDiv.innerHTML = '<div class="stat-label">No line available</div>';
+                    return;
+                }
+
+                const lineValue = displayLine.line;
+
+                try {
+                    // Fetch game logs
+                    const currentDate = new Date();
+                    let allCompletedGames = [];
+                    
+                    // Try up to 3 months back to get enough completed games
+                    for (let i = 0; i < 3 && allCompletedGames.length < 10; i++) {
+                        const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+                        const monthStr = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+                        
+                        const endpoint = `/v1/club-schedule/${teamAbbrev}/month/${monthStr}`;
+                        const scheduleUrl = `/api/nhl?endpoint=${encodeURIComponent(endpoint)}`;
+                        
+                        const response = await fetch(scheduleUrl);
+                        if (!response.ok) continue;
+                        
+                        const data = await response.json();
+                        if (data && data.games) {
+                            const completedGames = data.games.filter(g => 
+                                (g.gameState === 'OFF' || g.gameState === 'FINAL') && 
+                                g.homeTeam?.score !== undefined && 
+                                g.awayTeam?.score !== undefined
+                            );
+                            allCompletedGames.push(...completedGames);
+                        }
+                    }
+                    
+                    // Get last 10 games
+                    const games = allCompletedGames
+                        .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate))
+                        .slice(-10);
+                    
+                    if (games.length === 0) {
+                        hitRateDiv.innerHTML = '<div class="stat-label">No game history available</div>';
+                        return;
+                    }
+
+                    // Calculate hit rate
+                    let hits = 0;
+                    games.forEach(game => {
+                        const teamScore = game.homeTeam.abbrev === teamAbbrev ? game.homeTeam.score : game.awayTeam.score;
+                        if (teamScore > lineValue) hits++;
+                    });
+
+                    const hitRate = ((hits / games.length) * 100).toFixed(1);
+                    const colorClass = getHitRateColor(parseFloat(hitRate));
+                    teamHitRates[teamId] = parseFloat(hitRate);
+
+                    hitRateDiv.innerHTML = `
+                        <div class="stat-label">Last ${games.length} Games vs ${lineValue}</div>
+                        <div class="hit-rate-value ${colorClass}">${hitRate}% (${hits}/${games.length})</div>
+                    `;
+                } catch (error) {
+                    console.error('Error calculating hit rate for', teamName, error);
+                    hitRateDiv.innerHTML = '<div class="stat-label">Error loading hit rate</div>';
+                }
+            });
+
+            await Promise.all(promises);
         }
 
         function updateAllHitRates() {
