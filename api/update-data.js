@@ -370,9 +370,12 @@ export default async function handler(req, res) {
                       addOrMergeLine(playerName, 'shots', lineData, outcome.name);
                     } else if (market.key === 'player_total_saves' || market.key === 'player_total_saves_alternate') {
                       addOrMergeLine(playerName, 'saves', lineData, outcome.name);
-                    } else if (market.key === 'team_totals' || market.key === 'alternate_team_totals') {
-                      // Team totals - description is the team name
+                    } else if (market.key === 'team_totals') {
+                      // Main team totals only
                       addOrMergeLine(playerName, 'team_totals', lineData, outcome.name);
+                    } else if (market.key === 'alternate_team_totals') {
+                      // Alternate team totals - keep separate
+                      addOrMergeLine(playerName, 'alternate_team_totals', lineData, outcome.name);
                     }
                   } else if (market.key === 'player_goal_scorer_anytime' && outcome.name === 'Yes') {
                     // Goals is special - it's always 0.5 line with anytime odds
