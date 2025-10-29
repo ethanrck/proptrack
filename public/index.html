@@ -1261,10 +1261,25 @@
             // Collect all unique betting line values for the current stat type
             // Lines are now stored as arrays, so we need to iterate through them
             Object.values(bettingOdds).forEach(playerOdds => {
-                if (playerOdds[currentStatType] && Array.isArray(playerOdds[currentStatType])) {
-                    playerOdds[currentStatType].forEach(lineObj => {
-                        uniqueLines.add(lineObj.line);
-                    });
+                if (currentStatType === 'team_totals') {
+                    // For team totals, include both main and alternate lines
+                    if (playerOdds.team_totals && Array.isArray(playerOdds.team_totals)) {
+                        playerOdds.team_totals.forEach(lineObj => {
+                            uniqueLines.add(lineObj.line);
+                        });
+                    }
+                    if (playerOdds.alternate_team_totals && Array.isArray(playerOdds.alternate_team_totals)) {
+                        playerOdds.alternate_team_totals.forEach(lineObj => {
+                            uniqueLines.add(lineObj.line);
+                        });
+                    }
+                } else {
+                    // For other stat types, use the current stat type
+                    if (playerOdds[currentStatType] && Array.isArray(playerOdds[currentStatType])) {
+                        playerOdds[currentStatType].forEach(lineObj => {
+                            uniqueLines.add(lineObj.line);
+                        });
+                    }
                 }
             });
             
@@ -1707,19 +1722,26 @@
                         if (gt <= currentTime) return;
                     }
                     
+                    // Combine team_totals and alternate_team_totals for filtering and display
+                    const allLines = [...teamOdds.team_totals];
+                    if (teamOdds.alternate_team_totals && teamOdds.alternate_team_totals.length > 0) {
+                        allLines.push(...teamOdds.alternate_team_totals);
+                    }
+                    
                     // Check line filter - if set, only show teams that have this specific line
                     if (selectedLine) {
-                        const hasLine = teamOdds.team_totals.some(l => l.line == parseFloat(selectedLine));
+                        const hasLine = allLines.some(l => l.line == parseFloat(selectedLine));
                         if (!hasLine) return;
                     }
                     
-                    // Store ALL lines (including alternates) so we can access them when filter is applied
+                    // Store both main and alternate lines
                     const key = `${teamKey}|${game}`;
                     teamsMap.set(key, {
                         teamName: teamKey,
                         game: game,
                         gameTime: gameTime,
-                        lines: teamOdds.team_totals  // Store all lines
+                        mainLines: teamOdds.team_totals,  // Main lines only
+                        allLines: allLines  // All lines including alternates
                     });
                 }
             });
@@ -1734,18 +1756,16 @@
             teamsList.sort((a, b) => new Date(a.gameTime) - new Date(b.gameTime));
             
             const html = teamsList.map(teamData => {
-                const { teamName, game, gameTime, lines } = teamData;
+                const { teamName, game, gameTime, mainLines, allLines } = teamData;
                 
                 // Get the main line to display on card
                 let displayLine;
                 if (selectedLine) {
                     // If line filter is set, use that specific line from ALL lines (including alternates)
-                    displayLine = lines.find(l => l.line == parseFloat(selectedLine));
+                    displayLine = allLines.find(l => l.line == parseFloat(selectedLine));
                 } else {
-                    // Otherwise, filter to non-alternates first, then get the main line
-                    const nonAlternateLines = lines.filter(l => !l.isAlternate);
-                    const linesToUse = nonAlternateLines.length > 0 ? nonAlternateLines : lines;
-                    displayLine = getMainLine(linesToUse);
+                    // Otherwise, use main team_totals lines only (NOT alternates)
+                    displayLine = getMainLine(mainLines);
                 }
                 
                 if (!displayLine) return ''; // Safety check
@@ -2732,10 +2752,18 @@
                 t.teamFullName.includes(opponent)
             );
             
-            // Get betting lines for this team
+            // Get betting lines for this team - combine main and alternate lines
             const teamOdds = bettingOdds[teamName];
-            const allLines = teamOdds && teamOdds.team_totals ? teamOdds.team_totals : [];
-            const mainLine = allLines.length > 0 ? getMainLine(allLines) : null;
+            let allLines = [];
+            if (teamOdds) {
+                if (teamOdds.team_totals && teamOdds.team_totals.length > 0) {
+                    allLines.push(...teamOdds.team_totals);
+                }
+                if (teamOdds.alternate_team_totals && teamOdds.alternate_team_totals.length > 0) {
+                    allLines.push(...teamOdds.alternate_team_totals);
+                }
+            }
+            const mainLine = allLines.length > 0 ? getMainLine(teamOdds.team_totals || allLines) : null;
             const lineValue = mainLine ? mainLine.line : 0;
             
             // Try to fetch team schedule from NHL API
@@ -2804,6 +2832,7 @@
                 } catch (error) {
                     console.error('Error fetching team schedule:', error);
                     modalContent.innerHTML = `<h2>Error loading team schedule</h2><p>${error.message}</p>`;
+                    return;
                 }
             } else {
                 console.error('No teamId found for:', teamName, teamStats);
