@@ -1273,13 +1273,10 @@
                             uniqueLines.add(lineObj.line);
                         });
                     }
-                } else {
-                    // For other stat types, use the current stat type
-                    if (playerOdds[currentStatType] && Array.isArray(playerOdds[currentStatType])) {
-                        playerOdds[currentStatType].forEach(lineObj => {
-                            uniqueLines.add(lineObj.line);
-                        });
-                    }
+                } else if (playerOdds[currentStatType] && Array.isArray(playerOdds[currentStatType])) {
+                    playerOdds[currentStatType].forEach(lineObj => {
+                        uniqueLines.add(lineObj.line);
+                    });
                 }
             });
             
@@ -1722,7 +1719,7 @@
                         if (gt <= currentTime) return;
                     }
                     
-                    // Combine team_totals and alternate_team_totals for filtering and display
+                    // Combine team_totals and alternate_team_totals
                     const allLines = [...teamOdds.team_totals];
                     if (teamOdds.alternate_team_totals && teamOdds.alternate_team_totals.length > 0) {
                         allLines.push(...teamOdds.alternate_team_totals);
@@ -1734,13 +1731,13 @@
                         if (!hasLine) return;
                     }
                     
-                    // Store both main and alternate lines
+                    // Store both main and all lines
                     const key = `${teamKey}|${game}`;
                     teamsMap.set(key, {
                         teamName: teamKey,
                         game: game,
                         gameTime: gameTime,
-                        mainLines: teamOdds.team_totals,  // Main lines only
+                        mainLines: teamOdds.team_totals,  // Main lines from team_totals
                         allLines: allLines  // All lines including alternates
                     });
                 }
@@ -2767,14 +2764,14 @@
                 t.teamFullName.includes(opponent)
             );
             
-            // Get betting lines for this team - combine main and alternate lines
+            // Get betting lines for this team
             const teamOdds = bettingOdds[teamName];
             let allLines = [];
             let mainLines = [];
             if (teamOdds) {
                 if (teamOdds.team_totals && teamOdds.team_totals.length > 0) {
-                    allLines.push(...teamOdds.team_totals);
                     mainLines = teamOdds.team_totals;
+                    allLines.push(...teamOdds.team_totals);
                 }
                 if (teamOdds.alternate_team_totals && teamOdds.alternate_team_totals.length > 0) {
                     allLines.push(...teamOdds.alternate_team_totals);
