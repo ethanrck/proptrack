@@ -776,6 +776,7 @@
                 <button class="stat-button" onclick="selectStat('assists')">Assists</button>
                 <button class="stat-button" onclick="selectStat('shots')">Shots</button>
                 <button class="stat-button" onclick="selectStat('saves')">Goalie Saves</button>
+                <button class="stat-button" onclick="selectStat('team_totals')">Team Totals</button>
             </div>
         </div>
         
@@ -834,6 +835,7 @@
         let bettingOdds = {};
         let currentStatType = 'points';
         let isGoalieMode = false;
+        let isTeamTotalsMode = false;
         let watchlist = [];
         let selectedParlayPlayers = [];
 
@@ -1271,6 +1273,7 @@
         function selectStat(stat) {
             currentStatType = stat;
             isGoalieMode = (stat === 'saves');
+            isTeamTotalsMode = (stat === 'team_totals');
             
             document.querySelectorAll('.stat-button').forEach(btn => {
                 btn.classList.remove('active');
@@ -1283,12 +1286,16 @@
                     (stat === 'points' && btnText === 'points') ||
                     (stat === 'goals' && btnText === 'goals') ||
                     (stat === 'assists' && btnText === 'assists') ||
-                    (stat === 'shots' && btnText === 'shots')) {
+                    (stat === 'shots' && btnText === 'shots') ||
+                    (stat === 'team_totals' && btnText.includes('team'))) {
                     btn.classList.add('active');
                 }
             });
             
-            if (isGoalieMode) {
+            if (isTeamTotalsMode) {
+                // For team totals, we don't use player data
+                filteredPlayers = [];
+            } else if (isGoalieMode) {
                 filteredPlayers = [...allGoaliesData];
             } else {
                 filteredPlayers = [...allPlayersData];
@@ -1299,7 +1306,11 @@
             populateGameFilter();
             populateLineFilter();
             
-            filterPlayers();
+            if (isTeamTotalsMode) {
+                displayTeams();
+            } else {
+                filterPlayers();
+            }
         }
 
         // Helper function to find the main/default line (not alternate)
@@ -1645,6 +1656,100 @@
             
             container.innerHTML = html;
             updateAllHitRates();
+        }
+
+        function displayTeams() {
+            const container = document.getElementById('playersContainer');
+            const hideStartedGames = document.getElementById('hideStartedGames').checked;
+            const selectedGame = document.getElementById('gameFilter').value;
+            const selectedLine = document.getElementById('lineFilter').value;
+            const currentTime = new Date();
+            
+            // Get all team totals from bettingOdds
+            const teamTotalsData = [];
+            
+            Object.keys(bettingOdds).forEach(teamKey => {
+                const teamOdds = bettingOdds[teamKey];
+                if (teamOdds && teamOdds.team_totals) {
+                    teamOdds.team_totals.forEach(lineObj => {
+                        // Check game filter
+                        if (selectedGame && lineObj.game !== selectedGame) return;
+                        
+                        // Check line filter
+                        if (selectedLine && lineObj.line != parseFloat(selectedLine)) return;
+                        
+                        // Check if game has started
+                        if (hideStartedGames && lineObj.gameTime) {
+                            const gameTime = new Date(lineObj.gameTime);
+                            if (gameTime <= currentTime) return;
+                        }
+                        
+                        teamTotalsData.push({
+                            teamName: teamKey,
+                            ...lineObj
+                        });
+                    });
+                }
+            });
+            
+            if (teamTotalsData.length === 0) {
+                container.innerHTML = '<div class="loading">No team totals available</div>';
+                return;
+            }
+            
+            // Sort by game time
+            teamTotalsData.sort((a, b) => new Date(a.gameTime) - new Date(b.gameTime));
+            
+            const html = teamTotalsData.map(teamData => {
+                const { teamName, line, odds, game, gameTime } = teamData;
+                const formattedOdds = odds > 0 ? `+${odds}` : odds;
+                const gameTimeStr = new Date(gameTime).toLocaleString('en-US', { 
+                    weekday: 'short', 
+                    month: 'short', 
+                    day: 'numeric', 
+                    hour: 'numeric', 
+                    minute: '2-digit' 
+                });
+                
+                // Find team in teamShotData to get stats
+                const teamStats = teamShotData.find(t => 
+                    t.teamFullName === teamName || 
+                    t.abbrev === teamName ||
+                    t.teamFullName.includes(teamName)
+                );
+                
+                const goalsPerGame = teamStats ? teamStats.goalsPerGame.toFixed(1) : 'N/A';
+                const gamesPlayed = teamStats ? teamStats.gamesPlayed : 0;
+                
+                // Parse opponent from game string
+                const opponent = game.replace(teamName, '').replace(' vs ', '').replace(' @ ', '').trim();
+                
+                return `
+                    <div class="player-card" onclick="showTeamLog('${teamName}', '${game}')">
+                        <div class="player-header">
+                            <div class="player-name">${teamName}</div>
+                            <div class="odds-line" onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${line}, ${odds}, '${game}', '${gameTime}')">${teamName} O/U ${line} ${formattedOdds}</div>
+                        </div>
+                        <div class="player-team">${game}</div>
+                        <div class="player-stats">
+                            <div class="stat">
+                                <div class="stat-label">Season Avg</div>
+                                <div class="stat-value">${goalsPerGame}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Games Played</div>
+                                <div class="stat-value">${gamesPlayed}</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-label">Game Time</div>
+                                <div class="stat-value" style="font-size: 0.8em;">${gameTimeStr}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = html;
         }
 
         function updateAllHitRates() {
@@ -2536,6 +2641,216 @@
             });
             
             return (hits / h2hGames.length) * 100;
+        }
+
+        async function showTeamLog(teamName, gameName) {
+            const modalContent = document.getElementById('modalContent');
+            modalContent.innerHTML = '<div class="loading">Loading team data...</div>';
+            document.getElementById('gameLogModal').style.display = 'block';
+            
+            // Find team in teamShotData
+            const teamStats = teamShotData.find(t => 
+                t.teamFullName === teamName || 
+                t.abbrev === teamName ||
+                t.teamFullName.includes(teamName)
+            );
+            
+            if (!teamStats) {
+                modalContent.innerHTML = '<h2>Team not found</h2>';
+                return;
+            }
+            
+            // Parse opponent from game string
+            const opponent = gameName.replace(teamName, '').replace(' vs ', '').replace(' @ ', '').trim();
+            const oppTeamStats = teamShotData.find(t => 
+                t.teamFullName === opponent || 
+                t.abbrev === opponent ||
+                t.teamFullName.includes(opponent)
+            );
+            
+            // Get betting lines for this team
+            const teamOdds = bettingOdds[teamName];
+            const mainLine = teamOdds && teamOdds.team_totals ? getMainLine(teamOdds.team_totals) : null;
+            const lineValue = mainLine ? mainLine.line : 0;
+            
+            // Try to fetch team schedule from NHL API
+            // We'll need to map team name to team ID first
+            const teamNameToId = {
+                'Anaheim Ducks': 24, 'Arizona Coyotes': 53, 'Boston Bruins': 6, 'Buffalo Sabres': 7,
+                'Calgary Flames': 20, 'Carolina Hurricanes': 12, 'Chicago Blackhawks': 16, 'Colorado Avalanche': 21,
+                'Columbus Blue Jackets': 29, 'Dallas Stars': 25, 'Detroit Red Wings': 17, 'Edmonton Oilers': 22,
+                'Florida Panthers': 13, 'Los Angeles Kings': 26, 'Minnesota Wild': 30, 'Montreal Canadiens': 8,
+                'Nashville Predators': 18, 'New Jersey Devils': 1, 'New York Islanders': 2, 'New York Rangers': 3,
+                'Ottawa Senators': 9, 'Philadelphia Flyers': 4, 'Pittsburgh Penguins': 5, 'San Jose Sharks': 28,
+                'Seattle Kraken': 55, 'St. Louis Blues': 19, 'Tampa Bay Lightning': 14, 'Toronto Maple Leafs': 10,
+                'Utah Hockey Club': 59, 'Vancouver Canucks': 23, 'Vegas Golden Knights': 54, 'Washington Capitals': 15,
+                'Winnipeg Jets': 52
+            };
+            
+            const teamId = teamNameToId[teamStats.teamFullName] || teamNameToId[teamName];
+            
+            let games = [];
+            let hits = 0;
+            
+            if (teamId) {
+                try {
+                    const season = '20252026';
+                    const scheduleUrl = `https://api-web.nhle.com/v1/club-schedule-season/${teamId}/${season}`;
+                    const response = await fetch(scheduleUrl);
+                    const data = await response.json();
+                    
+                    if (data && data.games) {
+                        // Filter to completed games and get last 10
+                        games = data.games
+                            .filter(g => g.gameState === 'OFF' || g.gameState === 'FINAL')
+                            .slice(-10)
+                            .reverse();
+                        
+                        // Calculate hit rate
+                        games.forEach(game => {
+                            const teamScore = game.homeTeam.abbrev === teamStats.abbrev ? game.homeTeam.score : game.awayTeam.score;
+                            if (teamScore > lineValue) hits++;
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error fetching team schedule:', error);
+                }
+            }
+            
+            const hitRate = games.length > 0 ? ((hits / games.length) * 100).toFixed(1) : 0;
+            const colorClass = getHitRateColor(parseFloat(hitRate));
+            
+            // Generate game rows
+            const gameRows = games.map(game => {
+                const isHome = game.homeTeam.abbrev === teamStats.abbrev;
+                const teamScore = isHome ? game.homeTeam.score : game.awayTeam.score;
+                const oppAbbrev = isHome ? game.awayTeam.abbrev : game.homeTeam.abbrev;
+                const homeAway = isHome ? 'vs' : '@';
+                const [year, month, day] = game.gameDate.split('-');
+                const gameDate = new Date(year, month - 1, day).toLocaleDateString();
+                const hit = teamScore > lineValue;
+                
+                return `
+                    <tr class="${hit ? 'hit' : 'miss'}">
+                        <td>${gameDate}</td>
+                        <td>${homeAway} ${oppAbbrev}</td>
+                        <td><strong>${teamScore}</strong></td>
+                    </tr>
+                `;
+            }).join('');
+            
+            // H2H section
+            let h2hSection = '';
+            if (oppTeamStats && games.length > 0) {
+                const h2hGames = games.filter(game => {
+                    const oppAbbrev = game.homeTeam.abbrev === teamStats.abbrev ? game.awayTeam.abbrev : game.homeTeam.abbrev;
+                    return oppAbbrev === oppTeamStats.abbrev;
+                });
+                
+                if (h2hGames.length > 0) {
+                    let h2hHits = 0;
+                    const h2hRows = h2hGames.map(game => {
+                        const isHome = game.homeTeam.abbrev === teamStats.abbrev;
+                        const teamScore = isHome ? game.homeTeam.score : game.awayTeam.score;
+                        const homeAway = isHome ? 'vs' : '@';
+                        const [year, month, day] = game.gameDate.split('-');
+                        const gameDate = new Date(year, month - 1, day).toLocaleDateString();
+                        const hit = teamScore > lineValue;
+                        if (hit) h2hHits++;
+                        
+                        return `
+                            <tr class="${hit ? 'hit' : 'miss'}">
+                                <td>${gameDate}</td>
+                                <td>${homeAway} ${oppTeamStats.abbrev}</td>
+                                <td><strong>${teamScore}</strong></td>
+                            </tr>
+                        `;
+                    }).join('');
+                    
+                    const h2hHitRate = ((h2hHits / h2hGames.length) * 100).toFixed(1);
+                    const h2hColorClass = getHitRateColor(parseFloat(h2hHitRate));
+                    
+                    h2hSection = `
+                        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--input-border);">
+                            <h3>Head-to-Head vs ${oppTeamStats.abbrev} This Season</h3>
+                            <div class="summary-stats" style="margin-bottom: 15px;">
+                                <div class="summary-card">
+                                    <div class="summary-label">H2H Hit Rate</div>
+                                    <div class="summary-value ${h2hColorClass}">${h2hHitRate}%</div>
+                                </div>
+                                <div class="summary-card">
+                                    <div class="summary-label">H2H Games</div>
+                                    <div class="summary-value">${h2hGames.length}</div>
+                                </div>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Opponent</th>
+                                        <th>Goals</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${h2hRows}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                }
+            }
+            
+            modalContent.innerHTML = `
+                <h2>${teamName}</h2>
+                <p>${gameName}</p>
+                
+                <div class="summary-stats">
+                    <div class="summary-card">
+                        <div class="summary-label">Hit Rate (O/U ${lineValue})</div>
+                        <div class="summary-value ${colorClass}">${hitRate}%</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Hits</div>
+                        <div class="summary-value">${hits}/${games.length}</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-label">Season Avg Goals/Game</div>
+                        <div class="summary-value">${teamStats.goalsPerGame.toFixed(1)}</div>
+                    </div>
+                    ${oppTeamStats ? `
+                        <div class="summary-card">
+                            <div class="summary-label">${oppTeamStats.abbrev} Allows/Game</div>
+                            <div class="summary-value">${oppTeamStats.goalsAgainstPerGame.toFixed(1)}</div>
+                        </div>
+                    ` : ''}
+                </div>
+                
+                ${mainLine ? `
+                    <div class="summary-stats">
+                        <div class="summary-card" onclick="addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${mainLine.line}, ${mainLine.odds}, '${mainLine.game}', '${mainLine.gameTime}')" style="cursor: pointer; grid-column: 1 / -1;">
+                            <div class="summary-label">Betting Line</div>
+                            <div class="summary-value" style="color: #e67e22; font-size: 1.5em;">${teamName} O/U ${mainLine.line} ${mainLine.odds > 0 ? '+' : ''}${mainLine.odds}</div>
+                            <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">Click to add to Watchlist</div>
+                        </div>
+                    </div>
+                ` : ''}
+                
+                <h3 style="margin-top: 30px;">Last ${games.length} Games</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Opponent</th>
+                            <th>Goals</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${gameRows || '<tr><td colspan="3">No games available</td></tr>'}
+                    </tbody>
+                </table>
+                
+                ${h2hSection}
+            `;
         }
 
         function closeModal() {
