@@ -2017,11 +2017,10 @@
                         <tr class="${hit ? 'hit' : 'miss'}">
                             <td>${gameDate}</td>
                             <td>${homeAway} ${opponent}${oppDefenseInfo}</td>
-                            <td>${game.goals || 0}</td>
-                            <td>${game.assists || 0}</td>
-                            <td>${game.points || 0}</td>
-                            <td>${game.shots || 0}</td>
-                            <td><strong>${statValue}</strong></td>
+                            <td${currentStatType === 'goals' ? ' style="font-weight: bold;"' : ''}>${game.goals || 0}</td>
+                            <td${currentStatType === 'assists' ? ' style="font-weight: bold;"' : ''}>${game.assists || 0}</td>
+                            <td${currentStatType === 'points' ? ' style="font-weight: bold;"' : ''}>${game.points || 0}</td>
+                            <td${currentStatType === 'shots' ? ' style="font-weight: bold;"' : ''}>${game.shots || 0}</td>
                         </tr>
                     `;
                 }
@@ -2414,11 +2413,10 @@
                                 <th>SV%</th>
                                 <th>Decision</th>
                             ` : `
-                                <th>Goals</th>
-                                <th>Assists</th>
-                                <th>Points</th>
-                                <th>Shots</th>
-                                <th>${currentStatType.charAt(0).toUpperCase() + currentStatType.slice(1)}</th>
+                                <th${currentStatType === 'goals' ? ' style="font-weight: bold; color: #e67e22;"' : ''}>Goals</th>
+                                <th${currentStatType === 'assists' ? ' style="font-weight: bold; color: #e67e22;"' : ''}>Assists</th>
+                                <th${currentStatType === 'points' ? ' style="font-weight: bold; color: #e67e22;"' : ''}>Points</th>
+                                <th${currentStatType === 'shots' ? ' style="font-weight: bold; color: #e67e22;"' : ''}>Shots</th>
                             `}
                         </tr>
                     </thead>
