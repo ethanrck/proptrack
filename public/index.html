@@ -1624,11 +1624,10 @@
                     if (currentStatType === 'goals' && oddsInfo.type === 'anytime_scorer') {
                         oddsDisplay = `<div class="odds-line" onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${price}, '${game}', '${gameTime}')">Anytime Goal ${formattedOdds}</div>`;
                     } else {
-                        // Display both Over and Under odds
-                        const overDisplay = overOdds ? `<span style="color: #27ae60;">O ${overOdds > 0 ? '+' : ''}${overOdds}</span>` : '';
-                        const underDisplay = underOdds ? `<span style="color: #e74c3c;">U ${underOdds > 0 ? '+' : ''}${underOdds}</span>` : '';
-                        const separator = overOdds && underOdds ? ' / ' : '';
-                        oddsDisplay = `<div class="odds-line" onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${price}, '${game}', '${gameTime}')">Line ${line} ${overDisplay}${separator}${underDisplay}</div>`;
+                        // Display line and odds vertically stacked
+                        const overDisplay = overOdds ? `<div style="color: #27ae60; font-size: 0.85em;">O ${overOdds > 0 ? '+' : ''}${overOdds}</div>` : '';
+                        const underDisplay = underOdds ? `<div style="color: #e74c3c; font-size: 0.85em;">U ${underOdds > 0 ? '+' : ''}${underOdds}</div>` : '';
+                        oddsDisplay = `<div class="odds-line" onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${price}, '${game}', '${gameTime}')" style="display: flex; flex-direction: column; align-items: center; line-height: 1.3;"><div style="font-weight: bold; font-size: 1.1em;">${line}</div>${overDisplay}${underDisplay}</div>`;
                     }
                 }
                 
@@ -1697,12 +1696,16 @@
                         if (!hasLine) return;
                     }
                     
+                    // Filter to only non-alternate lines for display (like we do for player props)
+                    const nonAlternateLines = teamOdds.team_totals.filter(l => !l.isAlternate);
+                    const linesToUse = nonAlternateLines.length > 0 ? nonAlternateLines : teamOdds.team_totals;
+                    
                     const key = `${teamKey}|${game}`;
                     teamsMap.set(key, {
                         teamName: teamKey,
                         game: game,
                         gameTime: gameTime,
-                        lines: teamOdds.team_totals
+                        lines: linesToUse
                     });
                 }
             });
@@ -1755,11 +1758,10 @@
                     <div class="player-card" onclick="showTeamLog('${teamName}', '${game}')">
                         <div class="player-header">
                             <div class="player-name">${teamName}</div>
-                            <div class="odds-line" onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.overOdds || displayLine.underOdds}, '${game}', '${gameTime}')">
-                                <span style="font-weight: bold;">Line ${displayLine.line}</span>
-                                ${overOdds ? `<span style="color: #27ae60; margin-left: 8px;">O ${overOdds}</span>` : ''}
-                                ${overOdds && underOdds ? '<span style="margin: 0 3px;">/</span>' : ''}
-                                ${underOdds ? `<span style="color: #e74c3c;">U ${underOdds}</span>` : ''}
+                            <div class="odds-line" onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.overOdds || displayLine.underOdds}, '${game}', '${gameTime}')" style="display: flex; flex-direction: column; align-items: center; line-height: 1.3;">
+                                <div style="font-weight: bold; font-size: 1.1em;">${displayLine.line}</div>
+                                ${overOdds ? `<div style="color: #27ae60; font-size: 0.85em;">O ${overOdds}</div>` : ''}
+                                ${underOdds ? `<div style="color: #e74c3c; font-size: 0.85em;">U ${underOdds}</div>` : ''}
                             </div>
                         </div>
                         <div class="player-team">${game}</div>
@@ -2313,16 +2315,19 @@
                     oddsCard = `
                         <div class="summary-card" onclick="addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${lineData.line}, ${lineData.overOdds || lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}')" style="cursor: pointer; transition: all 0.2s;">
                             <div class="summary-label">${oddsLabel}</div>
-                            <div class="summary-value" style="color: #e67e22; font-size: 1.3em;">
-                                ${lineData.line !== undefined ? `Line: ${lineData.line}` : oddsValue}
-                            </div>
-                            ${lineData.overOdds !== undefined || lineData.underOdds !== undefined ? `
-                                <div style="font-size: 0.9em; color: var(--text-secondary); margin-top: 5px;">
-                                    ${lineData.overOdds !== undefined ? `<span style="color: #27ae60; font-weight: 600;">O ${lineData.overOdds > 0 ? '+' : ''}${lineData.overOdds}</span>` : ''}
-                                    ${lineData.overOdds !== undefined && lineData.underOdds !== undefined ? ' / ' : ''}
-                                    ${lineData.underOdds !== undefined ? `<span style="color: #e74c3c; font-weight: 600;">U ${lineData.underOdds > 0 ? '+' : ''}${lineData.underOdds}</span>` : ''}
+                            ${currentStatType === 'goals' && lineData.type === 'anytime_scorer' ? `
+                                <div class="summary-value" style="color: #e67e22; font-size: 1.5em;">${oddsValue}</div>
+                            ` : `
+                                <div style="display: flex; flex-direction: column; align-items: center; margin-top: 10px;">
+                                    <div style="color: #e67e22; font-size: 1.8em; font-weight: bold;">${lineData.line}</div>
+                                    ${lineData.overOdds !== undefined ? `
+                                        <div style="color: #27ae60; font-size: 1.1em; font-weight: 600; margin-top: 5px;">O ${lineData.overOdds > 0 ? '+' : ''}${lineData.overOdds}</div>
+                                    ` : ''}
+                                    ${lineData.underOdds !== undefined ? `
+                                        <div style="color: #e74c3c; font-size: 1.1em; font-weight: 600; margin-top: 5px;">U ${lineData.underOdds > 0 ? '+' : ''}${lineData.underOdds}</div>
+                                    ` : ''}
                                 </div>
-                            ` : `<div class="summary-value" style="color: #e67e22; font-size: 1.5em;">${oddsValue}</div>`}
+                            `}
                             <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">${watchlistText}</div>
                         </div>
                     `;
@@ -2339,13 +2344,14 @@
                                     const overOdds = lineData.overOdds ? (lineData.overOdds > 0 ? `+${lineData.overOdds}` : lineData.overOdds) : null;
                                     const underOdds = lineData.underOdds ? (lineData.underOdds > 0 ? `+${lineData.underOdds}` : lineData.underOdds) : null;
                                     return `
-                                        <div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${lineData.line}, ${lineData.overOdds || lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--card-bg); margin: 5px 0; border-radius: 6px; border-left: 3px solid #e67e22; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#e67e22'; this.style.color='white';" onmouseout="this.style.background='var(--card-bg)'; this.style.color='';">
-                                            <div>
-                                                <span style="font-weight: bold; color: #e67e22; font-size: 1.1em;">Line ${lineData.line}</span>
-                                                ${overOdds ? `<span style="color: #27ae60; font-size: 0.9em; margin-left: 8px; font-weight: 600;">O ${overOdds}</span>` : ''}
-                                                ${overOdds && underOdds ? '<span style="color: var(--text-secondary); margin: 0 3px;">/</span>' : ''}
-                                                ${underOdds ? `<span style="color: #e74c3c; font-size: 0.9em; font-weight: 600;">U ${underOdds}</span>` : ''}
-                                                <span style="color: var(--text-secondary); font-size: 0.8em; margin-left: 8px;">(${lineData.bookmaker})</span>
+                                        <div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${lineData.line}, ${lineData.overOdds || lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}')" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--card-bg); margin: 5px 0; border-radius: 6px; border-left: 3px solid #e67e22; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#e67e22'; this.style.color='white';" onmouseout="this.style.background='var(--card-bg)'; this.style.color='';">
+                                            <div style="display: flex; align-items: center; gap: 15px;">
+                                                <div style="display: flex; flex-direction: column; align-items: center; min-width: 50px;">
+                                                    <div style="font-weight: bold; color: #e67e22; font-size: 1.2em;">${lineData.line}</div>
+                                                    ${overOdds ? `<div style="color: #27ae60; font-size: 0.9em; font-weight: 600;">O ${overOdds}</div>` : ''}
+                                                    ${underOdds ? `<div style="color: #e74c3c; font-size: 0.9em; font-weight: 600;">U ${underOdds}</div>` : ''}
+                                                </div>
+                                                <span style="color: var(--text-secondary); font-size: 0.8em;">(${lineData.bookmaker})</span>
                                             </div>
                                             <div>
                                                 <span class="${lineData.colorClass}" style="font-weight: bold; font-size: 1em;">${lineData.hitRate}%</span>
@@ -2734,6 +2740,23 @@
             
             const teamId = teamNameToId[teamStats.teamFullName] || teamNameToId[teamName];
             
+            // Map team to proper NHL 3-letter abbreviation (API returns full names but schedule uses 3-letter codes)
+            const teamNameToAbbrev = {
+                'Anaheim Ducks': 'ANA', 'Arizona Coyotes': 'ARI', 'Boston Bruins': 'BOS', 'Buffalo Sabres': 'BUF',
+                'Calgary Flames': 'CGY', 'Carolina Hurricanes': 'CAR', 'Chicago Blackhawks': 'CHI', 'Colorado Avalanche': 'COL',
+                'Columbus Blue Jackets': 'CBJ', 'Dallas Stars': 'DAL', 'Detroit Red Wings': 'DET', 'Edmonton Oilers': 'EDM',
+                'Florida Panthers': 'FLA', 'Los Angeles Kings': 'LAK', 'Minnesota Wild': 'MIN', 'Montreal Canadiens': 'MTL',
+                'Nashville Predators': 'NSH', 'New Jersey Devils': 'NJD', 'New York Islanders': 'NYI', 'New York Rangers': 'NYR',
+                'Ottawa Senators': 'OTT', 'Philadelphia Flyers': 'PHI', 'Pittsburgh Penguins': 'PIT', 'San Jose Sharks': 'SJS',
+                'Seattle Kraken': 'SEA', 'St. Louis Blues': 'STL', 'Tampa Bay Lightning': 'TBL', 'Toronto Maple Leafs': 'TOR',
+                'Utah Hockey Club': 'UTA', 'Utah Mammoth': 'UTA', 'Vancouver Canucks': 'VAN', 'Vegas Golden Knights': 'VGK', 
+                'Washington Capitals': 'WSH', 'Winnipeg Jets': 'WPG'
+            };
+            
+            const teamAbbrev = teamNameToAbbrev[teamStats.teamFullName] || teamNameToAbbrev[teamName] || teamStats.abbrev;
+            
+            console.log('Team lookup:', { teamName, teamFullName: teamStats.teamFullName, teamId, teamAbbrev });
+            
             let games = [];
             let hits = 0;
             
@@ -2741,25 +2764,37 @@
                 try {
                     const season = '20252026';
                     const scheduleUrl = `https://api-web.nhle.com/v1/club-schedule-season/${teamId}/${season}`;
+                    console.log('Fetching schedule:', scheduleUrl);
                     const response = await fetch(scheduleUrl);
                     const data = await response.json();
                     
+                    console.log('Schedule API response:', data);
+                    
                     if (data && data.games) {
                         // Filter to completed games and get last 10
-                        games = data.games
-                            .filter(g => g.gameState === 'OFF' || g.gameState === 'FINAL')
+                        const completedGames = data.games.filter(g => g.gameState === 'OFF' || g.gameState === 'FINAL');
+                        console.log('Completed games:', completedGames.length);
+                        
+                        games = completedGames
                             .slice(-10)
                             .reverse();
                         
+                        console.log('Games to display:', games.length);
+                        
                         // Calculate hit rate
                         games.forEach(game => {
-                            const teamScore = game.homeTeam.abbrev === teamStats.abbrev ? game.homeTeam.score : game.awayTeam.score;
+                            const teamScore = game.homeTeam.abbrev === teamAbbrev ? game.homeTeam.score : game.awayTeam.score;
                             if (teamScore > lineValue) hits++;
                         });
                     }
                 } catch (error) {
                     console.error('Error fetching team schedule:', error);
+                    modalContent.innerHTML = `<h2>Error loading team schedule</h2><p>${error.message}</p>`;
                 }
+            } else {
+                console.error('No teamId found for:', teamName, teamStats);
+                modalContent.innerHTML = `<h2>Team ID not found</h2><p>Could not find team ID for ${teamName}</p>`;
+                return;
             }
             
             const hitRate = games.length > 0 ? ((hits / games.length) * 100).toFixed(1) : 0;
@@ -2767,7 +2802,7 @@
             
             // Generate game rows
             const gameRows = games.map(game => {
-                const isHome = game.homeTeam.abbrev === teamStats.abbrev;
+                const isHome = game.homeTeam.abbrev === teamAbbrev;
                 const teamScore = isHome ? game.homeTeam.score : game.awayTeam.score;
                 const oppAbbrev = isHome ? game.awayTeam.abbrev : game.homeTeam.abbrev;
                 const homeAway = isHome ? 'vs' : '@';
@@ -2787,15 +2822,18 @@
             // H2H section
             let h2hSection = '';
             if (oppTeamStats && games.length > 0) {
+                // Get opponent abbreviation
+                const oppAbbrev = teamNameToAbbrev[oppTeamStats.teamFullName] || teamNameToAbbrev[opponent] || oppTeamStats.abbrev;
+                
                 const h2hGames = games.filter(game => {
-                    const oppAbbrev = game.homeTeam.abbrev === teamStats.abbrev ? game.awayTeam.abbrev : game.homeTeam.abbrev;
-                    return oppAbbrev === oppTeamStats.abbrev;
+                    const gameOppAbbrev = game.homeTeam.abbrev === teamAbbrev ? game.awayTeam.abbrev : game.homeTeam.abbrev;
+                    return gameOppAbbrev === oppAbbrev;
                 });
                 
                 if (h2hGames.length > 0) {
                     let h2hHits = 0;
                     const h2hRows = h2hGames.map(game => {
-                        const isHome = game.homeTeam.abbrev === teamStats.abbrev;
+                        const isHome = game.homeTeam.abbrev === teamAbbrev;
                         const teamScore = isHome ? game.homeTeam.score : game.awayTeam.score;
                         const homeAway = isHome ? 'vs' : '@';
                         const [year, month, day] = game.gameDate.split('-');
@@ -2806,7 +2844,7 @@
                         return `
                             <tr class="${hit ? 'hit' : 'miss'}">
                                 <td>${gameDate}</td>
-                                <td>${homeAway} ${oppTeamStats.abbrev}</td>
+                                <td>${homeAway} ${oppAbbrev}</td>
                                 <td><strong>${teamScore}</strong></td>
                             </tr>
                         `;
@@ -2817,7 +2855,7 @@
                     
                     h2hSection = `
                         <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid var(--input-border);">
-                            <h3>Head-to-Head vs ${oppTeamStats.abbrev} This Season</h3>
+                            <h3>Head-to-Head vs ${oppAbbrev} This Season</h3>
                             <div class="summary-stats" style="margin-bottom: 15px;">
                                 <div class="summary-card">
                                     <div class="summary-label">H2H Hit Rate</div>
@@ -2901,11 +2939,10 @@
                             <div class="summary-stats">
                                 <div class="summary-card" onclick="addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${lineData.line}, ${lineData.overOdds || lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}')" style="cursor: pointer; grid-column: 1 / -1;">
                                     <div class="summary-label">Betting Line</div>
-                                    <div class="summary-value" style="color: #e67e22; font-size: 1.3em;">Line ${lineData.line}</div>
-                                    <div style="font-size: 0.9em; margin-top: 5px;">
-                                        ${overOdds ? `<span style="color: #27ae60; font-weight: 600;">O ${overOdds}</span>` : ''}
-                                        ${overOdds && underOdds ? ' / ' : ''}
-                                        ${underOdds ? `<span style="color: #e74c3c; font-weight: 600;">U ${underOdds}</span>` : ''}
+                                    <div style="display: flex; flex-direction: column; align-items: center; margin-top: 10px;">
+                                        <div style="color: #e67e22; font-size: 1.8em; font-weight: bold;">${lineData.line}</div>
+                                        ${overOdds ? `<div style="color: #27ae60; font-size: 1.1em; font-weight: 600; margin-top: 5px;">O ${overOdds}</div>` : ''}
+                                        ${underOdds ? `<div style="color: #e74c3c; font-size: 1.1em; font-weight: 600; margin-top: 5px;">U ${underOdds}</div>` : ''}
                                     </div>
                                     <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">Click to add to Watchlist</div>
                                 </div>
@@ -2925,13 +2962,14 @@
                                             const overOdds = lineData.overOdds ? (lineData.overOdds > 0 ? `+${lineData.overOdds}` : lineData.overOdds) : null;
                                             const underOdds = lineData.underOdds ? (lineData.underOdds > 0 ? `+${lineData.underOdds}` : lineData.underOdds) : null;
                                             return `
-                                                <div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${lineData.line}, ${lineData.overOdds || lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--card-bg); margin: 5px 0; border-radius: 6px; border-left: 3px solid #e67e22; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#e67e22'; this.style.color='white';" onmouseout="this.style.background='var(--card-bg)'; this.style.color='';">
-                                                    <div>
-                                                        <span style="font-weight: bold; color: #e67e22; font-size: 1.1em;">Line ${lineData.line}</span>
-                                                        ${overOdds ? `<span style="color: #27ae60; font-size: 0.9em; margin-left: 8px; font-weight: 600;">O ${overOdds}</span>` : ''}
-                                                        ${overOdds && underOdds ? '<span style="color: var(--text-secondary); margin: 0 3px;">/</span>' : ''}
-                                                        ${underOdds ? `<span style="color: #e74c3c; font-size: 0.9em; font-weight: 600;">U ${underOdds}</span>` : ''}
-                                                        <span style="color: var(--text-secondary); font-size: 0.8em; margin-left: 8px;">(${lineData.bookmaker})</span>
+                                                <div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${lineData.line}, ${lineData.overOdds || lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}')" style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--card-bg); margin: 5px 0; border-radius: 6px; border-left: 3px solid #e67e22; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#e67e22'; this.style.color='white';" onmouseout="this.style.background='var(--card-bg)'; this.style.color='';">
+                                                    <div style="display: flex; align-items: center; gap: 15px;">
+                                                        <div style="display: flex; flex-direction: column; align-items: center; min-width: 50px;">
+                                                            <div style="font-weight: bold; color: #e67e22; font-size: 1.2em;">${lineData.line}</div>
+                                                            ${overOdds ? `<div style="color: #27ae60; font-size: 0.9em; font-weight: 600;">O ${overOdds}</div>` : ''}
+                                                            ${underOdds ? `<div style="color: #e74c3c; font-size: 0.9em; font-weight: 600;">U ${underOdds}</div>` : ''}
+                                                        </div>
+                                                        <span style="color: var(--text-secondary); font-size: 0.8em;">(${lineData.bookmaker})</span>
                                                     </div>
                                                     <div>
                                                         <span class="${lineData.colorClass}" style="font-weight: bold; font-size: 1em;">${lineData.hitRate}%</span>
