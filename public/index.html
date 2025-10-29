@@ -1713,16 +1713,13 @@
                         if (!hasLine) return;
                     }
                     
-                    // Filter to only non-alternate lines for display (like we do for player props)
-                    const nonAlternateLines = teamOdds.team_totals.filter(l => !l.isAlternate);
-                    const linesToUse = nonAlternateLines.length > 0 ? nonAlternateLines : teamOdds.team_totals;
-                    
+                    // Store ALL lines (including alternates) so we can access them when filter is applied
                     const key = `${teamKey}|${game}`;
                     teamsMap.set(key, {
                         teamName: teamKey,
                         game: game,
                         gameTime: gameTime,
-                        lines: linesToUse
+                        lines: teamOdds.team_totals  // Store all lines
                     });
                 }
             });
@@ -1742,11 +1739,13 @@
                 // Get the main line to display on card
                 let displayLine;
                 if (selectedLine) {
-                    // If line filter is set, use that specific line
+                    // If line filter is set, use that specific line from ALL lines (including alternates)
                     displayLine = lines.find(l => l.line == parseFloat(selectedLine));
                 } else {
-                    // Otherwise use the main/default line
-                    displayLine = getMainLine(lines);
+                    // Otherwise, filter to non-alternates first, then get the main line
+                    const nonAlternateLines = lines.filter(l => !l.isAlternate);
+                    const linesToUse = nonAlternateLines.length > 0 ? nonAlternateLines : lines;
+                    displayLine = getMainLine(linesToUse);
                 }
                 
                 if (!displayLine) return ''; // Safety check
