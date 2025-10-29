@@ -292,6 +292,29 @@ export default async function handler(req, res) {
             }
           };
           
+          // Helper function to merge Over/Under odds for the same line
+          const addOrMergeLine = (playerName, statType, lineData, outcomeType) => {
+            if (!bettingOdds[playerName]) bettingOdds[playerName] = {};
+            if (!bettingOdds[playerName][statType]) bettingOdds[playerName][statType] = [];
+            
+            // Find existing line with same line value and bookmaker
+            const existingLine = bettingOdds[playerName][statType].find(
+              existing => existing.line === lineData.line && existing.bookmaker === lineData.bookmaker
+            );
+            
+            if (existingLine) {
+              // Merge Over/Under odds into existing line
+              if (outcomeType === 'Over' && lineData.overOdds !== null) {
+                existingLine.overOdds = lineData.overOdds;
+              } else if (outcomeType === 'Under' && lineData.underOdds !== null) {
+                existingLine.underOdds = lineData.underOdds;
+              }
+            } else {
+              // Add new line
+              bettingOdds[playerName][statType].push(lineData);
+            }
+          };
+          
           // FIXED: Process all games and ALL bookmakers (not just [0])
           for (const result of allPropsData) {
             if (!result) continue;
@@ -319,34 +342,44 @@ export default async function handler(req, res) {
                   const playerName = outcome.description;
                   if (!playerName) return;
 
+                  // Create line data structure that includes Over/Under type
                   const lineData = {
                     line: outcome.point,
-                    odds: outcome.price,
+                    overOdds: null,
+                    underOdds: null,
                     bookmaker: bookmaker.title,
                     game: `${event.home_team} vs ${event.away_team}`,
                     gameTime: event.commence_time,
                     isAlternate: market.key.includes('_alternate') // Flag alternate lines
                   };
 
-                  if (outcome.name === 'Over' && outcome.point !== undefined) {
+                  if (outcome.point !== undefined && (outcome.name === 'Over' || outcome.name === 'Under')) {
+                    // Assign odds based on Over/Under
+                    if (outcome.name === 'Over') {
+                      lineData.overOdds = outcome.price;
+                    } else if (outcome.name === 'Under') {
+                      lineData.underOdds = outcome.price;
+                    }
+                    
                     // Handle standard and alternate markets for each prop type
                     if (market.key === 'player_points' || market.key === 'player_points_alternate') {
-                      addLine(playerName, 'points', lineData);
+                      addOrMergeLine(playerName, 'points', lineData, outcome.name);
                     } else if (market.key === 'player_assists' || market.key === 'player_assists_alternate') {
-                      addLine(playerName, 'assists', lineData);
+                      addOrMergeLine(playerName, 'assists', lineData, outcome.name);
                     } else if (market.key === 'player_shots_on_goal' || market.key === 'player_shots_on_goal_alternate') {
-                      addLine(playerName, 'shots', lineData);
+                      addOrMergeLine(playerName, 'shots', lineData, outcome.name);
                     } else if (market.key === 'player_total_saves' || market.key === 'player_total_saves_alternate') {
-                      addLine(playerName, 'saves', lineData);
+                      addOrMergeLine(playerName, 'saves', lineData, outcome.name);
                     } else if (market.key === 'team_totals' || market.key === 'alternate_team_totals') {
                       // Team totals - description is the team name
-                      addLine(playerName, 'team_totals', lineData);
+                      addOrMergeLine(playerName, 'team_totals', lineData, outcome.name);
                     }
                   } else if (market.key === 'player_goal_scorer_anytime' && outcome.name === 'Yes') {
                     // Goals is special - it's always 0.5 line with anytime odds
                     addLine(playerName, 'goals', {
                       line: 0.5,
-                      odds: outcome.price,
+                      overOdds: outcome.price,
+                      underOdds: null,
                       bookmaker: bookmaker.title,
                       game: `${event.home_team} vs ${event.away_team}`,
                       gameTime: event.commence_time,
