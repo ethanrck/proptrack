@@ -1758,6 +1758,8 @@
             const html = teamsList.map(teamData => {
                 const { teamName, game, gameTime, mainLines, allLines } = teamData;
                 
+                console.log('Displaying team:', teamName, 'mainLines:', mainLines, 'allLines:', allLines);
+                
                 // Get the main line to display on card
                 let displayLine;
                 if (selectedLine) {
@@ -1765,10 +1767,18 @@
                     displayLine = allLines.find(l => l.line == parseFloat(selectedLine));
                 } else {
                     // Otherwise, use main team_totals lines only (NOT alternates)
-                    displayLine = getMainLine(mainLines);
+                    if (mainLines && mainLines.length > 0) {
+                        displayLine = getMainLine(mainLines);
+                    } else if (allLines && allLines.length > 0) {
+                        // Fallback to allLines if mainLines is empty
+                        displayLine = getMainLine(allLines);
+                    }
                 }
                 
-                if (!displayLine) return ''; // Safety check
+                if (!displayLine) {
+                    console.error('No display line found for team:', teamName);
+                    return ''; // Safety check
+                }
                 
                 const overOdds = displayLine.overOdds ? (displayLine.overOdds > 0 ? `+${displayLine.overOdds}` : displayLine.overOdds) : null;
                 const underOdds = displayLine.underOdds ? (displayLine.underOdds > 0 ? `+${displayLine.underOdds}` : displayLine.underOdds) : null;
@@ -2732,6 +2742,8 @@
             modalContent.innerHTML = '<div class="loading">Loading team data...</div>';
             document.getElementById('gameLogModal').style.display = 'block';
             
+            console.log('showTeamLog called with:', { teamName, gameName });
+            
             // Find team in teamShotData
             const teamStats = teamShotData.find(t => 
                 t.teamFullName === teamName || 
@@ -2739,8 +2751,11 @@
                 t.teamFullName.includes(teamName)
             );
             
+            console.log('Team stats found:', teamStats);
+            
             if (!teamStats) {
-                modalContent.innerHTML = '<h2>Team not found</h2>';
+                console.error('Team not found in teamShotData. Available teams:', teamShotData.map(t => t.teamFullName));
+                modalContent.innerHTML = `<h2>Team not found in data</h2><p>Team "${teamName}" not found. Please try refreshing the page.</p>`;
                 return;
             }
             
@@ -2755,15 +2770,17 @@
             // Get betting lines for this team - combine main and alternate lines
             const teamOdds = bettingOdds[teamName];
             let allLines = [];
+            let mainLines = [];
             if (teamOdds) {
                 if (teamOdds.team_totals && teamOdds.team_totals.length > 0) {
                     allLines.push(...teamOdds.team_totals);
+                    mainLines = teamOdds.team_totals;
                 }
                 if (teamOdds.alternate_team_totals && teamOdds.alternate_team_totals.length > 0) {
                     allLines.push(...teamOdds.alternate_team_totals);
                 }
             }
-            const mainLine = allLines.length > 0 ? getMainLine(teamOdds.team_totals || allLines) : null;
+            const mainLine = mainLines.length > 0 ? getMainLine(mainLines) : (allLines.length > 0 ? getMainLine(allLines) : null);
             const lineValue = mainLine ? mainLine.line : 0;
             
             // Try to fetch team schedule from NHL API
@@ -2808,6 +2825,11 @@
                     const scheduleUrl = `https://api-web.nhle.com/v1/club-schedule-season/${teamId}/${season}`;
                     console.log('Fetching schedule:', scheduleUrl);
                     const response = await fetch(scheduleUrl);
+                    
+                    if (!response.ok) {
+                        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+                    }
+                    
                     const data = await response.json();
                     
                     console.log('Schedule API response:', data);
@@ -2831,13 +2853,12 @@
                     }
                 } catch (error) {
                     console.error('Error fetching team schedule:', error);
-                    modalContent.innerHTML = `<h2>Error loading team schedule</h2><p>${error.message}</p>`;
-                    return;
+                    console.log('Continuing without game history...');
+                    // Don't return - continue to show betting lines even if game history fails
                 }
             } else {
                 console.error('No teamId found for:', teamName, teamStats);
-                modalContent.innerHTML = `<h2>Team ID not found</h2><p>Could not find team ID for ${teamName}</p>`;
-                return;
+                // Don't return - continue to show betting lines even without teamId
             }
             
             const hitRate = games.length > 0 ? ((hits / games.length) * 100).toFixed(1) : 0;
@@ -2932,12 +2953,12 @@
                 
                 <div class="summary-stats">
                     <div class="summary-card">
-                        <div class="summary-label">Hit Rate (O/U ${lineValue})</div>
-                        <div class="summary-value ${colorClass}">${hitRate}%</div>
+                        <div class="summary-label">Hit Rate (O/U ${lineValue || 'N/A'})</div>
+                        <div class="summary-value ${colorClass}">${games.length > 0 ? hitRate + '%' : 'N/A'}</div>
                     </div>
                     <div class="summary-card">
                         <div class="summary-label">Hits</div>
-                        <div class="summary-value">${hits}/${games.length}</div>
+                        <div class="summary-value">${games.length > 0 ? hits + '/' + games.length : 'N/A'}</div>
                     </div>
                     <div class="summary-card">
                         <div class="summary-label">Season Avg Goals/Game</div>
@@ -3013,8 +3034,10 @@
                                                         <span style="color: var(--text-secondary); font-size: 0.8em;">(${lineData.bookmaker})</span>
                                                     </div>
                                                     <div>
+                                                        ${games.length > 0 ? `
                                                         <span class="${lineData.colorClass}" style="font-weight: bold; font-size: 1em;">${lineData.hitRate}%</span>
                                                         <span style="color: var(--text-secondary); font-size: 0.9em; margin-left: 5px;">(${lineData.hits}/${games.length})</span>
+                                                        ` : '<span style="color: var(--text-secondary); font-size: 0.9em;">No history</span>'}
                                                     </div>
                                                 </div>
                                             `;
@@ -3027,6 +3050,7 @@
                 })() : ''}
                 
                 <h3 style="margin-top: 30px;">Last ${games.length} Games</h3>
+                ${games.length === 0 ? '<p style="color: var(--text-secondary); text-align: center; padding: 20px;">Game history not available. NHL API may be unavailable or blocked.</p>' : ''}
                 <table>
                     <thead>
                         <tr>
