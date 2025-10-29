@@ -252,8 +252,8 @@ export default async function handler(req, res) {
           
           const gamePromises = todaysGames.map(async event => {
             const eventId = event.id;
-            // Include both standard and alternate markets for multiple line options per player
-            const propsUrl = `https://api.the-odds-api.com/v4/sports/icehockey_nhl/events/${eventId}/odds?apiKey=${oddsApiKey}&regions=us&markets=player_points,player_points_alternate,player_goal_scorer_anytime,player_assists,player_assists_alternate,player_shots_on_goal,player_shots_on_goal_alternate,player_total_saves,player_total_saves_alternate&oddsFormat=american`;
+            // Include both standard and alternate markets for multiple line options per player AND team totals
+            const propsUrl = `https://api.the-odds-api.com/v4/sports/icehockey_nhl/events/${eventId}/odds?apiKey=${oddsApiKey}&regions=us&markets=player_points,player_points_alternate,player_goal_scorer_anytime,player_assists,player_assists_alternate,player_shots_on_goal,player_shots_on_goal_alternate,player_total_saves,player_total_saves_alternate,team_totals,alternate_team_totals&oddsFormat=american`;
             
             try {
               const propsResponse = await fetch(propsUrl);
@@ -338,6 +338,9 @@ export default async function handler(req, res) {
                       addLine(playerName, 'shots', lineData);
                     } else if (market.key === 'player_total_saves' || market.key === 'player_total_saves_alternate') {
                       addLine(playerName, 'saves', lineData);
+                    } else if (market.key === 'team_totals' || market.key === 'alternate_team_totals') {
+                      // Team totals - description is the team name
+                      addLine(playerName, 'team_totals', lineData);
                     }
                   } else if (market.key === 'player_goal_scorer_anytime' && outcome.name === 'Yes') {
                     // Goals is special - it's always 0.5 line with anytime odds
