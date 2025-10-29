@@ -1665,44 +1665,67 @@
             const selectedLine = document.getElementById('lineFilter').value;
             const currentTime = new Date();
             
-            // Get all team totals from bettingOdds
-            const teamTotalsData = [];
+            // Get all unique teams from bettingOdds
+            const teamsMap = new Map(); // Key: "teamName|game", Value: team data with all lines
             
             Object.keys(bettingOdds).forEach(teamKey => {
                 const teamOdds = bettingOdds[teamKey];
-                if (teamOdds && teamOdds.team_totals) {
-                    teamOdds.team_totals.forEach(lineObj => {
-                        // Check game filter
-                        if (selectedGame && lineObj.game !== selectedGame) return;
-                        
-                        // Check line filter
-                        if (selectedLine && lineObj.line != parseFloat(selectedLine)) return;
-                        
-                        // Check if game has started
-                        if (hideStartedGames && lineObj.gameTime) {
-                            const gameTime = new Date(lineObj.gameTime);
-                            if (gameTime <= currentTime) return;
-                        }
-                        
-                        teamTotalsData.push({
-                            teamName: teamKey,
-                            ...lineObj
-                        });
+                if (teamOdds && teamOdds.team_totals && teamOdds.team_totals.length > 0) {
+                    // Get the game from the first line (they should all be the same game)
+                    const firstLine = teamOdds.team_totals[0];
+                    const game = firstLine.game;
+                    const gameTime = firstLine.gameTime;
+                    
+                    // Check game filter
+                    if (selectedGame && game !== selectedGame) return;
+                    
+                    // Check if game has started
+                    if (hideStartedGames && gameTime) {
+                        const gt = new Date(gameTime);
+                        if (gt <= currentTime) return;
+                    }
+                    
+                    // Check line filter - if set, only show teams that have this specific line
+                    if (selectedLine) {
+                        const hasLine = teamOdds.team_totals.some(l => l.line == parseFloat(selectedLine));
+                        if (!hasLine) return;
+                    }
+                    
+                    const key = `${teamKey}|${game}`;
+                    teamsMap.set(key, {
+                        teamName: teamKey,
+                        game: game,
+                        gameTime: gameTime,
+                        lines: teamOdds.team_totals
                     });
                 }
             });
             
-            if (teamTotalsData.length === 0) {
+            if (teamsMap.size === 0) {
                 container.innerHTML = '<div class="loading">No team totals available</div>';
                 return;
             }
             
-            // Sort by game time
-            teamTotalsData.sort((a, b) => new Date(a.gameTime) - new Date(b.gameTime));
+            // Convert to array and sort by game time
+            const teamsList = Array.from(teamsMap.values());
+            teamsList.sort((a, b) => new Date(a.gameTime) - new Date(b.gameTime));
             
-            const html = teamTotalsData.map(teamData => {
-                const { teamName, line, odds, game, gameTime } = teamData;
-                const formattedOdds = odds > 0 ? `+${odds}` : odds;
+            const html = teamsList.map(teamData => {
+                const { teamName, game, gameTime, lines } = teamData;
+                
+                // Get the main line to display on card
+                let displayLine;
+                if (selectedLine) {
+                    // If line filter is set, use that specific line
+                    displayLine = lines.find(l => l.line == parseFloat(selectedLine));
+                } else {
+                    // Otherwise use the main/default line
+                    displayLine = getMainLine(lines);
+                }
+                
+                if (!displayLine) return ''; // Safety check
+                
+                const formattedOdds = displayLine.odds > 0 ? `+${displayLine.odds}` : displayLine.odds;
                 const gameTimeStr = new Date(gameTime).toLocaleString('en-US', { 
                     weekday: 'short', 
                     month: 'short', 
@@ -1721,14 +1744,11 @@
                 const goalsPerGame = teamStats ? teamStats.goalsPerGame.toFixed(1) : 'N/A';
                 const gamesPlayed = teamStats ? teamStats.gamesPlayed : 0;
                 
-                // Parse opponent from game string
-                const opponent = game.replace(teamName, '').replace(' vs ', '').replace(' @ ', '').trim();
-                
                 return `
                     <div class="player-card" onclick="showTeamLog('${teamName}', '${game}')">
                         <div class="player-header">
                             <div class="player-name">${teamName}</div>
-                            <div class="odds-line" onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${line}, ${odds}, '${game}', '${gameTime}')">${teamName} O/U ${line} ${formattedOdds}</div>
+                            <div class="odds-line" onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.odds}, '${game}', '${gameTime}')">${teamName} O/U ${displayLine.line} ${formattedOdds}</div>
                         </div>
                         <div class="player-team">${game}</div>
                         <div class="player-stats">
@@ -2670,7 +2690,8 @@
             
             // Get betting lines for this team
             const teamOdds = bettingOdds[teamName];
-            const mainLine = teamOdds && teamOdds.team_totals ? getMainLine(teamOdds.team_totals) : null;
+            const allLines = teamOdds && teamOdds.team_totals ? teamOdds.team_totals : [];
+            const mainLine = allLines.length > 0 ? getMainLine(allLines) : null;
             const lineValue = mainLine ? mainLine.line : 0;
             
             // Try to fetch team schedule from NHL API
@@ -2825,15 +2846,73 @@
                     ` : ''}
                 </div>
                 
-                ${mainLine ? `
-                    <div class="summary-stats">
-                        <div class="summary-card" onclick="addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${mainLine.line}, ${mainLine.odds}, '${mainLine.game}', '${mainLine.gameTime}')" style="cursor: pointer; grid-column: 1 / -1;">
-                            <div class="summary-label">Betting Line</div>
-                            <div class="summary-value" style="color: #e67e22; font-size: 1.5em;">${teamName} O/U ${mainLine.line} ${mainLine.odds > 0 ? '+' : ''}${mainLine.odds}</div>
-                            <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">Click to add to Watchlist</div>
-                        </div>
-                    </div>
-                ` : ''}
+                ${allLines.length > 0 ? (() => {
+                    // Calculate hit rate for each line
+                    const linesWithHitRates = allLines.map(lineObj => {
+                        let lineHits = 0;
+                        games.forEach(game => {
+                            const isHome = game.homeTeam.abbrev === teamStats.abbrev;
+                            const teamScore = isHome ? game.homeTeam.score : game.awayTeam.score;
+                            if (teamScore > lineObj.line) lineHits++;
+                        });
+                        
+                        const hitRate = games.length > 0 ? ((lineHits / games.length) * 100).toFixed(1) : 0;
+                        const colorClass = getHitRateColor(parseFloat(hitRate));
+                        
+                        return {
+                            ...lineObj,
+                            hits: lineHits,
+                            hitRate,
+                            colorClass
+                        };
+                    });
+                    
+                    if (linesWithHitRates.length === 1) {
+                        // Single line - show traditional card
+                        const lineData = linesWithHitRates[0];
+                        const formattedOdds = lineData.odds > 0 ? `+${lineData.odds}` : lineData.odds;
+                        
+                        return `
+                            <div class="summary-stats">
+                                <div class="summary-card" onclick="addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${lineData.line}, ${lineData.odds}, '${lineData.game}', '${lineData.gameTime}')" style="cursor: pointer; grid-column: 1 / -1;">
+                                    <div class="summary-label">Betting Line</div>
+                                    <div class="summary-value" style="color: #e67e22; font-size: 1.5em;">${teamName} O/U ${lineData.line} ${formattedOdds}</div>
+                                    <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 5px;">Click to add to Watchlist</div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // Multiple lines - show all with hit rates
+                        return `
+                            <div class="summary-stats">
+                                <div class="summary-card" style="grid-column: 1 / -1;">
+                                    <div class="collapsible-header" onclick="toggleAvailableLines(this)">
+                                        <div class="summary-label">Available Lines (${linesWithHitRates.length}) - Click any line to add to watchlist</div>
+                                        <span class="toggle-arrow">▼</span>
+                                    </div>
+                                    <div class="collapsible-content">
+                                        ${linesWithHitRates.map(lineData => {
+                                            const formattedOdds = lineData.odds > 0 ? `+${lineData.odds}` : lineData.odds;
+                                            return `
+                                                <div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${lineData.line}, ${lineData.odds}, '${lineData.game}', '${lineData.gameTime}')" style="display: flex; justify-content: space-between; align-items: center; padding: 8px; background: var(--card-bg); margin: 5px 0; border-radius: 6px; border-left: 3px solid #e67e22; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#e67e22'; this.style.color='white';" onmouseout="this.style.background='var(--card-bg)'; this.style.color='';">
+                                                    <div>
+                                                        <span style="font-weight: bold; color: #e67e22; font-size: 1.1em;">${teamName} O/U ${lineData.line}</span>
+                                                        <span style="color: var(--text-secondary); font-size: 0.9em; margin-left: 8px;">${formattedOdds}</span>
+                                                        <span style="color: var(--text-secondary); font-size: 0.8em; margin-left: 8px;">(${lineData.bookmaker})</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="${lineData.colorClass}" style="font-weight: bold; font-size: 1em;">${lineData.hitRate}%</span>
+                                                        <span style="color: var(--text-secondary); font-size: 0.9em; margin-left: 5px;">(${lineData.hits}/${games.length})</span>
+                                                    </div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                })() : ''}
                 
                 <h3 style="margin-top: 30px;">Last ${games.length} Games</h3>
                 <table>
