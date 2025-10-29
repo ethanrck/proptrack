@@ -1638,8 +1638,8 @@
                         oddsDisplay = `<div class="odds-line" onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${price}, '${game}', '${gameTime}')">Anytime Goal ${formattedOdds}</div>`;
                     } else {
                         // Display line and odds vertically stacked with individual click handlers
-                        oddsDisplay = `<div class="odds-line" style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px;">
-                            <div style="font-weight: bold; font-size: 1.5em; color: #e67e22;">${line}</div>
+                        oddsDisplay = `<div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px; background: var(--warning-bg); padding: 8px; border-radius: 6px;">
+                            <div style="font-weight: bold; font-size: 1.5em; color: #e67e22; pointer-events: none;">${line}</div>
                             ${overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${overOdds}, '${game}', '${gameTime}', 'over')" style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${overOdds > 0 ? '+' : ''}${overOdds}</div>` : ''}
                             ${underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${underOdds}, '${game}', '${gameTime}', 'under')" style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${underOdds > 0 ? '+' : ''}${underOdds}</div>` : ''}
                         </div>`;
@@ -1649,11 +1649,13 @@
                 return `
                     <div class="player-card" onclick="showGameLog(${player.playerId})">
                         <div class="player-header">
-                            <div class="player-name">${name}</div>
+                            <div style="flex: 1;">
+                                <div class="player-name">${name}</div>
+                                <div class="player-team" style="margin-top: 2px; margin-bottom: 0;">${team} - ${position} | GP: ${gamesPlayed}</div>
+                            </div>
                             ${oddsDisplay}
                         </div>
-                        <div class="player-team">${team} - ${position} | GP: ${gamesPlayed}</div>
-                        <div class="player-stats">
+                        <div class="player-stats" style="margin-top: 10px;">
                             <div class="stat">
                                 <div class="stat-label">${stat1Label}</div>
                                 <div class="stat-value">${stat1Value}</div>
