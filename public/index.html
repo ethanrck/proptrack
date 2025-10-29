@@ -2816,47 +2816,54 @@
             let games = [];
             let hits = 0;
             
-            if (teamId) {
+            if (teamAbbrev) {
                 try {
-                    const season = '20252026';
-                    const endpoint = `/v1/club-schedule-season/${teamId}/${season}`;
-                    const scheduleUrl = `/api/nhl?endpoint=${encodeURIComponent(endpoint)}`;
-                    console.log('Fetching schedule:', scheduleUrl);
-                    const response = await fetch(scheduleUrl);
+                    // Fetch current month and previous months to get enough completed games
+                    const currentDate = new Date();
+                    let allCompletedGames = [];
                     
-                    if (!response.ok) {
-                        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+                    // Try up to 3 months back to get enough completed games
+                    for (let i = 0; i < 3 && allCompletedGames.length < 10; i++) {
+                        const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+                        const monthStr = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+                        
+                        const endpoint = `/v1/club-schedule/${teamAbbrev}/month/${monthStr}`;
+                        const scheduleUrl = `/api/nhl?endpoint=${encodeURIComponent(endpoint)}`;
+                        console.log('Fetching schedule:', scheduleUrl);
+                        
+                        const response = await fetch(scheduleUrl);
+                        if (!response.ok) continue;
+                        
+                        const data = await response.json();
+                        if (data && data.games) {
+                            const completedGames = data.games.filter(g => 
+                                (g.gameState === 'OFF' || g.gameState === 'FINAL') && 
+                                g.homeTeam?.score !== undefined && 
+                                g.awayTeam?.score !== undefined
+                            );
+                            allCompletedGames.push(...completedGames);
+                        }
                     }
                     
-                    const data = await response.json();
+                    // Get last 10 games
+                    games = allCompletedGames
+                        .sort((a, b) => new Date(a.gameDate) - new Date(b.gameDate))
+                        .slice(-10)
+                        .reverse();
                     
-                    console.log('Schedule API response:', data);
+                    console.log('Games to display:', games.length);
                     
-                    if (data && data.games) {
-                        // Filter to completed games and get last 10
-                        const completedGames = data.games.filter(g => g.gameState === 'OFF' || g.gameState === 'FINAL');
-                        console.log('Completed games:', completedGames.length);
-                        
-                        games = completedGames
-                            .slice(-10)
-                            .reverse();
-                        
-                        console.log('Games to display:', games.length);
-                        
-                        // Calculate hit rate
-                        games.forEach(game => {
-                            const teamScore = game.homeTeam.abbrev === teamAbbrev ? game.homeTeam.score : game.awayTeam.score;
-                            if (teamScore > lineValue) hits++;
-                        });
-                    }
+                    // Calculate hit rate
+                    games.forEach(game => {
+                        const teamScore = game.homeTeam.abbrev === teamAbbrev ? game.homeTeam.score : game.awayTeam.score;
+                        if (teamScore > lineValue) hits++;
+                    });
                 } catch (error) {
                     console.error('Error fetching team schedule:', error);
                     console.log('Continuing without game history...');
-                    // Don't return - continue to show betting lines even if game history fails
                 }
             } else {
-                console.error('No teamId found for:', teamName, teamStats);
-                // Don't return - continue to show betting lines even without teamId
+                console.error('No team abbreviation found for:', teamName);
             }
             
             const hitRate = games.length > 0 ? ((hits / games.length) * 100).toFixed(1) : 0;
