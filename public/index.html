@@ -1803,8 +1803,8 @@
                     <div class="player-card" onclick="showTeamLog('${teamName}', '${game}')">
                         <div class="player-header">
                             <div class="player-name">${teamName}</div>
-                            <div class="odds-line" style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px;">
-                                <div style="font-weight: bold; font-size: 1.5em; color: #e67e22;">${displayLine.line}</div>
+                            <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px;">
+                                <div style="font-weight: bold; font-size: 1.5em; color: #e67e22; pointer-events: none;">${displayLine.line}</div>
                                 ${overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.overOdds}, '${game}', '${gameTime}', 'over')" style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${overOdds}</div>` : ''}
                                 ${underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.underOdds}, '${game}', '${gameTime}', 'under')" style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${underOdds}</div>` : ''}
                             </div>
@@ -2496,7 +2496,7 @@
                         </div>
                     `;
                 } else {
-                    // Multiple lines - show all with hit rates
+                    // Multiple lines - show all with hit rates in table format
                     oddsCard = `
                         <div class="summary-card" style="grid-column: 1 / -1;">
                             <div class="collapsible-header" onclick="toggleAvailableLines(this)">
@@ -2504,24 +2504,40 @@
                                 <span class="toggle-arrow">▼</span>
                             </div>
                             <div class="collapsible-content">
-                                ${linesWithHitRates.map(lineData => {
-                                    return `
-                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--card-bg); margin: 5px 0; border-radius: 6px; border-left: 3px solid #e67e22; transition: all 0.2s;">
-                                            <div style="display: flex; align-items: center; gap: 15px;">
-                                                <div style="display: flex; flex-direction: column; align-items: center; min-width: 60px; gap: 3px;">
-                                                    <div style="font-weight: bold; color: #e67e22; font-size: 1.4em;">${lineData.line}</div>
-                                                    ${lineData.overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${lineData.line}, ${lineData.overOdds}, '${lineData.game}', '${lineData.gameTime}', 'over')" style="color: #27ae60; font-size: 1em; font-weight: 600; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${lineData.overOdds > 0 ? '+' : ''}${lineData.overOdds}</div>` : ''}
-                                                    ${lineData.underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${lineData.line}, ${lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}', 'under')" style="color: #e74c3c; font-size: 1em; font-weight: 600; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${lineData.underOdds > 0 ? '+' : ''}${lineData.underOdds}</div>` : ''}
-                                                </div>
-                                                <span style="color: var(--text-secondary); font-size: 0.8em;">(${lineData.bookmaker})</span>
-                                            </div>
-                                            <div>
-                                                <span class="${lineData.colorClass}" style="font-weight: bold; font-size: 1em;">${lineData.hitRate}%</span>
-                                                <span style="color: var(--text-secondary); font-size: 0.9em; margin-left: 5px;">(${lineData.hits}/${games.length})</span>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
+                                <table style="width: 100%; border-collapse: separate; border-spacing: 0 8px;">
+                                    <thead>
+                                        <tr style="background: var(--container-bg); color: var(--text-secondary); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            <th style="padding: 10px 12px; text-align: left; font-weight: 600;">Line</th>
+                                            <th style="padding: 10px 12px; text-align: left; font-weight: 600;">Over / Under</th>
+                                            <th style="padding: 10px 12px; text-align: left; font-weight: 600;">Bookmaker</th>
+                                            <th style="padding: 10px 12px; text-align: right; font-weight: 600;">Hit Rate</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${linesWithHitRates.map(lineData => {
+                                            return `
+                                                <tr style="background: var(--card-bg);">
+                                                    <td style="padding: 14px 12px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-left: 1px solid var(--border-color); border-radius: 8px 0 0 8px;">
+                                                        <div style="font-weight: 700; color: #e67e22; font-size: 1.5em;">${lineData.line}</div>
+                                                    </td>
+                                                    <td style="padding: 14px 12px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                                                        <div style="display: flex; flex-direction: column; gap: 6px;">
+                                                            ${lineData.overOdds !== undefined ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${lineData.line}, ${lineData.overOdds}, '${lineData.game}', '${lineData.gameTime}', 'over')" style="color: #27ae60; font-size: 1.05em; font-weight: 600; cursor: pointer; padding: 4px 10px; border-radius: 4px; transition: all 0.2s; display: inline-block; width: fit-content;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${lineData.overOdds > 0 ? '+' : ''}${lineData.overOdds}</div>` : ''}
+                                                            ${lineData.underOdds !== undefined ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${lineData.line}, ${lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}', 'under')" style="color: #e74c3c; font-size: 1.05em; font-weight: 600; cursor: pointer; padding: 4px 10px; border-radius: 4px; transition: all 0.2s; display: inline-block; width: fit-content;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${lineData.underOdds > 0 ? '+' : ''}${lineData.underOdds}</div>` : ''}
+                                                        </div>
+                                                    </td>
+                                                    <td style="padding: 14px 12px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.9em;">
+                                                        ${lineData.bookmaker}
+                                                    </td>
+                                                    <td style="padding: 14px 12px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-radius: 0 8px 8px 0; text-align: right;">
+                                                        <span class="${lineData.colorClass}" style="font-weight: 700; font-size: 1.25em;">${lineData.hitRate}%</span>
+                                                        <span style="color: var(--text-secondary); font-size: 0.9em; margin-left: 5px;">(${lineData.hits}/${games.length})</span>
+                                                    </td>
+                                                </tr>
+                                            `;
+                                        }).join('')}
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
                     `;
@@ -3139,7 +3155,7 @@
                             </div>
                         `;
                     } else {
-                        // Multiple lines - show all with hit rates
+                        // Multiple lines - show all with hit rates in table format
                         return `
                             <div class="summary-stats">
                                 <div class="summary-card" style="grid-column: 1 / -1;">
@@ -3148,26 +3164,42 @@
                                         <span class="toggle-arrow">▼</span>
                                     </div>
                                     <div class="collapsible-content">
-                                        ${linesWithHitRates.map(lineData => {
-                                            return `
-                                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: var(--card-bg); margin: 5px 0; border-radius: 6px; border-left: 3px solid #e67e22; transition: all 0.2s;">
-                                                    <div style="display: flex; align-items: center; gap: 15px;">
-                                                        <div style="display: flex; flex-direction: column; align-items: center; min-width: 60px; gap: 3px;">
-                                                            <div style="font-weight: bold; color: #e67e22; font-size: 1.4em;">${lineData.line}</div>
-                                                            ${lineData.overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${lineData.line}, ${lineData.overOdds}, '${lineData.game}', '${lineData.gameTime}', 'over')" style="color: #27ae60; font-size: 1em; font-weight: 600; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${lineData.overOdds > 0 ? '+' : ''}${lineData.overOdds}</div>` : ''}
-                                                            ${lineData.underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${lineData.line}, ${lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}', 'under')" style="color: #e74c3c; font-size: 1em; font-weight: 600; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${lineData.underOdds > 0 ? '+' : ''}${lineData.underOdds}</div>` : ''}
-                                                        </div>
-                                                        <span style="color: var(--text-secondary); font-size: 0.8em;">(${lineData.bookmaker})</span>
-                                                    </div>
-                                                    <div>
-                                                        ${games.length > 0 ? `
-                                                        <span class="${lineData.colorClass}" style="font-weight: bold; font-size: 1em;">${lineData.hitRate}%</span>
-                                                        <span style="color: var(--text-secondary); font-size: 0.9em; margin-left: 5px;">(${lineData.hits}/${games.length})</span>
-                                                        ` : '<span style="color: var(--text-secondary); font-size: 0.9em;">No history</span>'}
-                                                    </div>
-                                                </div>
-                                            `;
-                                        }).join('')}
+                                        <table style="width: 100%; border-collapse: separate; border-spacing: 0 8px;">
+                                            <thead>
+                                                <tr style="background: var(--container-bg); color: var(--text-secondary); font-size: 0.85em; text-transform: uppercase; letter-spacing: 0.5px;">
+                                                    <th style="padding: 10px 12px; text-align: left; font-weight: 600;">Line</th>
+                                                    <th style="padding: 10px 12px; text-align: left; font-weight: 600;">Over / Under</th>
+                                                    <th style="padding: 10px 12px; text-align: left; font-weight: 600;">Bookmaker</th>
+                                                    <th style="padding: 10px 12px; text-align: right; font-weight: 600;">Hit Rate</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${linesWithHitRates.map(lineData => {
+                                                    return `
+                                                        <tr style="background: var(--card-bg);">
+                                                            <td style="padding: 14px 12px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-left: 1px solid var(--border-color); border-radius: 8px 0 0 8px;">
+                                                                <div style="font-weight: 700; color: #e67e22; font-size: 1.5em;">${lineData.line}</div>
+                                                            </td>
+                                                            <td style="padding: 14px 12px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+                                                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                                                    ${lineData.overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${lineData.line}, ${lineData.overOdds}, '${lineData.game}', '${lineData.gameTime}', 'over')" style="color: #27ae60; font-size: 1.05em; font-weight: 600; cursor: pointer; padding: 4px 10px; border-radius: 4px; transition: all 0.2s; display: inline-block; width: fit-content;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${lineData.overOdds > 0 ? '+' : ''}${lineData.overOdds}</div>` : ''}
+                                                                    ${lineData.underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${lineData.line}, ${lineData.underOdds}, '${lineData.game}', '${lineData.gameTime}', 'under')" style="color: #e74c3c; font-size: 1.05em; font-weight: 600; cursor: pointer; padding: 4px 10px; border-radius: 4px; transition: all 0.2s; display: inline-block; width: fit-content;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${lineData.underOdds > 0 ? '+' : ''}${lineData.underOdds}</div>` : ''}
+                                                                </div>
+                                                            </td>
+                                                            <td style="padding: 14px 12px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.9em;">
+                                                                ${lineData.bookmaker}
+                                                            </td>
+                                                            <td style="padding: 14px 12px; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-radius: 0 8px 8px 0; text-align: right;">
+                                                                ${games.length > 0 ? `
+                                                                <span class="${lineData.colorClass}" style="font-weight: 700; font-size: 1.25em;">${lineData.hitRate}%</span>
+                                                                <span style="color: var(--text-secondary); font-size: 0.9em; margin-left: 5px;">(${lineData.hits}/${games.length})</span>
+                                                                ` : '<span style="color: var(--text-secondary); font-size: 0.9em;">No history</span>'}
+                                                            </td>
+                                                        </tr>
+                                                    `;
+                                                }).join('')}
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
