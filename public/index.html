@@ -1811,12 +1811,8 @@
                         </div>
                         <div class="player-team">${game}</div>
                         <div class="player-stats">
-                            <div class="stat" id="hitrate-${teamId}" style="grid-column: span 2; background: var(--card-bg); padding: 10px; border-radius: 6px;">
+                            <div class="stat" id="hitrate-${teamId}" style="grid-column: span 3; background: var(--card-bg); padding: 10px; border-radius: 6px;">
                                 <div class="stat-label">Loading hit rate...</div>
-                            </div>
-                            <div class="stat">
-                                <div class="stat-label">Game Time</div>
-                                <div class="stat-value" style="font-size: 0.8em;">${gameTimeStr}</div>
                             </div>
                         </div>
                     </div>
@@ -2459,6 +2455,9 @@
                         colorClass
                     };
                 });
+                
+                // Sort lines from lowest to highest
+                linesWithHitRates.sort((a, b) => a.line - b.line);
                 
                 if (linesWithHitRates.length === 1) {
                     // Single line - show traditional card
@@ -3118,6 +3117,9 @@
                             colorClass
                         };
                     });
+                    
+                    // Sort lines from lowest to highest
+                    linesWithHitRates.sort((a, b) => a.line - b.line);
                     
                     if (linesWithHitRates.length === 1) {
                         // Single line - show traditional card
