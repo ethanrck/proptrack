@@ -1659,7 +1659,7 @@
                         oddsDisplay = `<div class="odds-line" onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${price}, '${game}', '${gameTime}')">Anytime Goal ${formattedOdds}</div>`;
                     } else {
                         // Display line and odds vertically stacked with individual click handlers
-                        oddsDisplay = `<div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px; background: var(--warning-bg); padding: 8px; border-radius: 6px;">
+                        oddsDisplay = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; gap: 2px; background: var(--warning-bg); padding: 8px; border-radius: 6px; min-height: 95px; min-width: 120px;">
                             <div style="font-weight: bold; font-size: 1.5em; color: #e67e22; pointer-events: none;">${line}</div>
                             ${overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${overOdds}, '${game}', '${gameTime}', 'over')" style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${overOdds > 0 ? '+' : ''}${overOdds}</div>` : ''}
                             ${underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist(${player.playerId}, '${name.replace(/'/g, "\\'")}', '${currentStatType}', ${line}, ${underOdds}, '${game}', '${gameTime}', 'under')" style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${underOdds > 0 ? '+' : ''}${underOdds}</div>` : ''}
@@ -1803,7 +1803,7 @@
                     <div class="player-card" onclick="showTeamLog('${teamName}', '${game}')">
                         <div class="player-header">
                             <div class="player-name">${teamName}</div>
-                            <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px; background: var(--warning-bg); padding: 8px; border-radius: 6px;">
+                            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2; gap: 2px; background: var(--warning-bg); padding: 8px; border-radius: 6px; min-height: 95px; min-width: 120px;">
                                 <div style="font-weight: bold; font-size: 1.5em; color: #e67e22; pointer-events: none;">${displayLine.line}</div>
                                 ${overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.overOdds}, '${game}', '${gameTime}', 'over')" style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${overOdds}</div>` : ''}
                                 ${underOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.underOdds}, '${game}', '${gameTime}', 'under')" style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#e74c3c'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#e74c3c';">U ${underOdds}</div>` : ''}
@@ -1811,7 +1811,7 @@
                         </div>
                         <div class="player-team">${game}</div>
                         <div class="player-stats">
-                            <div class="stat" id="hitrate-${teamId}" style="grid-column: span 3; background: var(--card-bg); padding: 10px; border-radius: 6px;">
+                            <div class="stat" id="hitrate-${teamId}" style="grid-column: span 3; background: var(--card-bg); padding: 10px; border-radius: 6px; border: 2px solid var(--border-color);">
                                 <div class="stat-label">Loading hit rate...</div>
                             </div>
                         </div>
