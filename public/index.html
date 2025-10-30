@@ -834,6 +834,7 @@
         let filteredPlayers = [];
         let playerHitRates = {};
         let teamHitRates = {};
+        let teamScheduleCache = {}; // Cache for team game schedules
         let bettingOdds = {};
         let currentStatType = 'points';
         let isGoalieMode = false;
@@ -1803,7 +1804,7 @@
                 return `
                     <div class="player-card" onclick="showTeamLog('${teamName}', '${game}')">
                         <div class="player-header">
-                            <div class="player-name">${teamName}</div>
+                            <div class="player-name" style="max-width: 60%; word-wrap: break-word;">${teamName}</div>
                             <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px; background: var(--warning-bg); padding: 8px; border-radius: 6px;">
                                 <div style="font-weight: bold; font-size: 1.5em; color: #e67e22; pointer-events: none;">${displayLine.line}</div>
                                 ${overOdds ? `<div onclick="event.stopPropagation(); addToWatchlist('team-${teamName.replace(/\s+/g, '-')}', '${teamName}', 'team_totals', ${displayLine.line}, ${displayLine.overOdds}, '${game}', '${gameTime}', 'over')" style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" onmouseover="this.style.background='#27ae60'; this.style.color='white';" onmouseout="this.style.background=''; this.style.color='#27ae60';">O ${overOdds}</div>` : ''}
@@ -1811,10 +1812,8 @@
                             </div>
                         </div>
                         <div class="player-team">${game}</div>
-                        <div class="player-stats">
-                            <div class="stat" id="hitrate-${teamId}" style="grid-column: span 3; background: var(--card-bg); padding: 10px; border-radius: 6px;">
-                                <div class="stat-label">Loading hit rate...</div>
-                            </div>
+                        <div class="hit-rate-display" id="hitrate-${teamId}">
+                            <div class="stat-label">Loading hit rate...</div>
                         </div>
                     </div>
                 `;
@@ -1887,30 +1886,40 @@
                 const lineValue = displayLine.line;
 
                 try {
-                    // Fetch game logs
-                    const currentDate = new Date();
+                    // Check cache first
                     let allCompletedGames = [];
                     
-                    // Try up to 3 months back to get enough completed games
-                    for (let i = 0; i < 3 && allCompletedGames.length < 10; i++) {
-                        const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-                        const monthStr = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+                    if (teamScheduleCache[teamAbbrev]) {
+                        // Use cached data
+                        allCompletedGames = teamScheduleCache[teamAbbrev];
+                    } else {
+                        // Fetch game logs and cache them
+                        const currentDate = new Date();
                         
-                        const endpoint = `/v1/club-schedule/${teamAbbrev}/month/${monthStr}`;
-                        const scheduleUrl = `/api/nhl?endpoint=${encodeURIComponent(endpoint)}`;
-                        
-                        const response = await fetch(scheduleUrl);
-                        if (!response.ok) continue;
-                        
-                        const data = await response.json();
-                        if (data && data.games) {
-                            const completedGames = data.games.filter(g => 
-                                (g.gameState === 'OFF' || g.gameState === 'FINAL') && 
-                                g.homeTeam?.score !== undefined && 
-                                g.awayTeam?.score !== undefined
-                            );
-                            allCompletedGames.push(...completedGames);
+                        // Try up to 3 months back to get enough completed games
+                        for (let i = 0; i < 3 && allCompletedGames.length < 10; i++) {
+                            const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+                            const monthStr = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+                            
+                            const endpoint = `/v1/club-schedule/${teamAbbrev}/month/${monthStr}`;
+                            const scheduleUrl = `/api/nhl?endpoint=${encodeURIComponent(endpoint)}`;
+                            
+                            const response = await fetch(scheduleUrl);
+                            if (!response.ok) continue;
+                            
+                            const data = await response.json();
+                            if (data && data.games) {
+                                const completedGames = data.games.filter(g => 
+                                    (g.gameState === 'OFF' || g.gameState === 'FINAL') && 
+                                    g.homeTeam?.score !== undefined && 
+                                    g.awayTeam?.score !== undefined
+                                );
+                                allCompletedGames.push(...completedGames);
+                            }
                         }
+                        
+                        // Cache the results
+                        teamScheduleCache[teamAbbrev] = allCompletedGames;
                     }
                     
                     // Get last 10 games
