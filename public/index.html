@@ -968,6 +968,13 @@
                     overUnder: overUnder || null, // 'over', 'under', or null
                     addedAt: new Date().toISOString()
                 });
+                
+                // Open watchlist when adding a player
+                const container = document.getElementById('watchlistContainer');
+                if (container.classList.contains('minimized')) {
+                    container.classList.remove('minimized');
+                    localStorage.setItem('watchlistMinimized', false);
+                }
             }
             
             saveWatchlist();
@@ -1048,16 +1055,22 @@
                 return;
             }
             
-            // Add header with clear button
+            // Add header with clear button and add all to parlay button
             let headerHtml = `
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                     <div style="font-size: 0.9em; color: var(--text-secondary);">
                         Click to select for parlay
                     </div>
-                    <button onclick="clearWatchlist()" 
-                            style="background: var(--error-bg); color: var(--error-text); border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.85em;">
-                        Clear All
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button onclick="addAllToParlay()" 
+                                style="background: var(--button-bg); color: var(--button-text); border: 2px solid var(--button-text); padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.85em; font-weight: 600; transition: all 0.3s;">
+                            Add All to Parlay
+                        </button>
+                        <button onclick="clearWatchlist()" 
+                                style="background: var(--error-bg); color: var(--error-text); border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.85em;">
+                            Clear All
+                        </button>
+                    </div>
                 </div>
             `;
             
@@ -1173,6 +1186,12 @@
         // Clear parlay selection
         function clearParlaySelection() {
             selectedParlayPlayers = [];
+            updateWatchlistDisplay();
+        }
+
+        // Add all watchlist items to parlay
+        function addAllToParlay() {
+            selectedParlayPlayers = watchlist.map(item => `${item.playerId}-${item.statType}`);
             updateWatchlistDisplay();
         }
 
