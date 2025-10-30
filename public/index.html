@@ -217,7 +217,7 @@
         .line-filter-buttons {
             display: flex;
             gap: 10px;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             align-items: center;
         }
         
@@ -231,6 +231,8 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
+            white-space: nowrap;
+            flex-shrink: 0;
         }
         
         .line-filter-button:hover {
@@ -252,6 +254,7 @@
             cursor: pointer;
             font-weight: 600;
             min-width: 150px;
+            flex-shrink: 0;
         }
         
         .search-box {
@@ -1334,19 +1337,22 @@
                 return;
             }
             
-            // Calculate how many buttons can fit
+            // Calculate how many buttons can fit on ONE line without wrapping
             const containerWidth = lineFilterButtons.offsetWidth || 1000; // fallback to 1000px
-            const buttonWidth = 90; // approximate width per button including gap
-            const dropdownWidth = 160; // width of "More lines..." dropdown
+            const buttonWidth = 100; // Conservative estimate per button including gap
+            const dropdownWidth = 170; // width of "More lines..." dropdown including gap
+            const allLinesButtonWidth = 110; // "All Lines" is slightly wider
             
-            // Reserve space for "All Lines" button and potential dropdown
-            let availableSpace = containerWidth - buttonWidth - dropdownWidth - 20; // 20px buffer
+            // Calculate available space more conservatively
+            // Start with container width, subtract "All Lines" button and potential dropdown, and add buffer
+            let availableSpace = containerWidth - allLinesButtonWidth - dropdownWidth - 40; // 40px buffer for safety
             let maxVisibleButtons = Math.floor(availableSpace / buttonWidth);
             
+            // Be conservative - if we're close to the limit, use dropdown
             // Ensure we show at least 2 line buttons if space allows (plus All Lines)
             maxVisibleButtons = Math.max(2, Math.min(maxVisibleButtons, sortedLines.length));
             
-            // If we can fit all buttons comfortably, don't need dropdown
+            // If we have more lines than can fit, we need dropdown
             const needsDropdown = sortedLines.length > maxVisibleButtons;
             
             // Clear existing content
