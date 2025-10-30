@@ -222,17 +222,25 @@
         }
         
         .line-filter-button {
-            padding: 12px 24px;
+            padding: 10px 16px;
             background: var(--button-bg);
             color: var(--button-text);
             border: 2px solid var(--button-text);
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
             white-space: nowrap;
             flex-shrink: 0;
+            min-width: 70px;
+            max-width: 70px;
+            text-align: center;
+        }
+        
+        .line-filter-button.all-lines {
+            min-width: 95px;
+            max-width: 95px;
         }
         
         .line-filter-button:hover {
@@ -245,8 +253,8 @@
         }
         
         .line-filter-dropdown {
-            padding: 12px 20px;
-            font-size: 16px;
+            padding: 10px 16px;
+            font-size: 15px;
             border: 2px solid var(--input-border);
             border-radius: 8px;
             background: var(--container-bg);
@@ -1339,16 +1347,14 @@
             
             // Calculate how many buttons can fit on ONE line without wrapping
             const containerWidth = lineFilterButtons.offsetWidth || 1000; // fallback to 1000px
-            const buttonWidth = 100; // Conservative estimate per button including gap
+            const buttonWidth = 80; // Fixed width (70px) + gap (10px)
             const dropdownWidth = 170; // width of "More lines..." dropdown including gap
-            const allLinesButtonWidth = 110; // "All Lines" is slightly wider
+            const allLinesButtonWidth = 105; // "All Lines" button (95px) + gap (10px)
             
-            // Calculate available space more conservatively
-            // Start with container width, subtract "All Lines" button and potential dropdown, and add buffer
-            let availableSpace = containerWidth - allLinesButtonWidth - dropdownWidth - 40; // 40px buffer for safety
+            // Calculate available space - get closer to edges with smaller buffer
+            let availableSpace = containerWidth - allLinesButtonWidth - dropdownWidth - 15; // 15px buffer
             let maxVisibleButtons = Math.floor(availableSpace / buttonWidth);
             
-            // Be conservative - if we're close to the limit, use dropdown
             // Ensure we show at least 2 line buttons if space allows (plus All Lines)
             maxVisibleButtons = Math.max(2, Math.min(maxVisibleButtons, sortedLines.length));
             
@@ -1360,7 +1366,7 @@
             
             // Add "All Lines" button
             const allButton = document.createElement('button');
-            allButton.className = 'line-filter-button active';
+            allButton.className = 'line-filter-button all-lines active';
             allButton.textContent = 'All Lines';
             allButton.onclick = () => selectLineFilter('', allButton, true);
             lineFilterButtons.appendChild(allButton);
