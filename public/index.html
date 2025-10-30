@@ -1209,13 +1209,19 @@
         function toggleAvailableLines(headerElement) {
             const content = headerElement.nextElementSibling;
             const arrow = headerElement.querySelector('.toggle-arrow');
+            const subtitle = headerElement.querySelector('.collapsible-subtitle');
+            const columnHeaders = content.querySelector('.collapsible-column-headers');
             
             if (content.classList.contains('expanded')) {
                 content.classList.remove('expanded');
                 arrow.classList.remove('expanded');
+                if (subtitle) subtitle.style.display = '';
+                if (columnHeaders) columnHeaders.style.display = 'none';
             } else {
                 content.classList.add('expanded');
                 arrow.classList.add('expanded');
+                if (subtitle) subtitle.style.display = 'none';
+                if (columnHeaders) columnHeaders.style.display = 'block';
             }
         }
 
@@ -2685,10 +2691,24 @@
                     oddsCard = `
                         <div class="summary-card" style="grid-column: 1 / -1;">
                             <div class="collapsible-header" onclick="toggleAvailableLines(this)">
-                                <div class="summary-label">Available Lines (${linesWithHitRates.length}) - Click any pill to add to watchlist</div>
+                                <div class="summary-label collapsible-title">Available Lines (${linesWithHitRates.length})</div>
+                                <div class="summary-label collapsible-subtitle" style="font-size: 0.85em; color: var(--text-secondary); margin-left: 10px;">Click any pill to add to watchlist</div>
                                 <span class="toggle-arrow">▼</span>
                             </div>
                             <div class="collapsible-content" style="display: flex; flex-direction: column; gap: 10px;">
+                                <div class="collapsible-column-headers" style="display: none; padding: 8px 20px; font-weight: 600; font-size: 0.9em; color: var(--text-secondary); border-bottom: 2px solid var(--table-border);">
+                                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                                        <div style="display: flex; align-items: center; gap: 20px;">
+                                            <div style="min-width: 60px;">Line</div>
+                                            <div style="min-width: 200px;">Odds</div>
+                                            <div>Bookmaker</div>
+                                        </div>
+                                        <div style="display: flex; align-items: center; gap: 15px;">
+                                            <div style="min-width: 80px; text-align: center;">Hit Rate</div>
+                                            <div style="min-width: 60px; text-align: center;">Record</div>
+                                        </div>
+                                    </div>
+                                </div>
                                 ${linesWithHitRates.map(lineData => {
                                     return `
                                         <div style="background: var(--card-bg); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border: 2px solid transparent; transition: border-color 0.2s;">
@@ -3332,10 +3352,24 @@
                             <div class="summary-stats">
                                 <div class="summary-card" style="grid-column: 1 / -1;">
                                     <div class="collapsible-header" onclick="toggleAvailableLines(this)">
-                                        <div class="summary-label">Available Lines (${linesWithHitRates.length}) - Click any pill to add to watchlist</div>
+                                        <div class="summary-label collapsible-title">Available Lines (${linesWithHitRates.length})</div>
+                                        <div class="summary-label collapsible-subtitle" style="font-size: 0.85em; color: var(--text-secondary); margin-left: 10px;">Click any pill to add to watchlist</div>
                                         <span class="toggle-arrow">▼</span>
                                     </div>
                                     <div class="collapsible-content" style="display: flex; flex-direction: column; gap: 10px;">
+                                        <div class="collapsible-column-headers" style="display: none; padding: 8px 20px; font-weight: 600; font-size: 0.9em; color: var(--text-secondary); border-bottom: 2px solid var(--table-border);">
+                                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                                <div style="display: flex; align-items: center; gap: 20px;">
+                                                    <div style="min-width: 60px;">Line</div>
+                                                    <div style="min-width: 200px;">Odds</div>
+                                                    <div>Bookmaker</div>
+                                                </div>
+                                                <div style="display: flex; align-items: center; gap: 15px;">
+                                                    <div style="min-width: 80px; text-align: center;">Hit Rate</div>
+                                                    <div style="min-width: 60px; text-align: center;">Record</div>
+                                                </div>
+                                            </div>
+                                        </div>
                                         ${linesWithHitRates.map(lineData => {
                                             return `
                                                 <div style="background: var(--card-bg); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; border: 2px solid transparent; transition: border-color 0.2s;">
