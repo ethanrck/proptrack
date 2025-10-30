@@ -215,33 +215,43 @@
         }
         
         .line-filter-buttons {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            display: flex;
             gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
         }
         
         .line-filter-button {
-            padding: 15px;
-            background: var(--container-bg);
-            color: var(--text-primary);
-            border: 2px solid var(--input-border);
+            padding: 12px 24px;
+            background: var(--button-bg);
+            color: var(--button-text);
+            border: 2px solid var(--button-text);
             border-radius: 8px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.2s;
-            text-align: center;
+            transition: all 0.3s;
         }
         
         .line-filter-button:hover {
-            border-color: var(--button-text);
-            transform: translateY(-2px);
+            opacity: 0.8;
         }
         
         .line-filter-button.active {
             background: var(--button-active-bg);
             color: var(--button-active-text);
-            border-color: var(--button-active-bg);
+        }
+        
+        .line-filter-dropdown {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: 2px solid var(--input-border);
+            border-radius: 8px;
+            background: var(--container-bg);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-weight: 600;
+            min-width: 150px;
         }
         
         .search-box {
@@ -1294,10 +1304,8 @@
             const uniqueLines = new Set();
             
             // Collect all unique betting line values for the current stat type
-            // Lines are now stored as arrays, so we need to iterate through them
             Object.values(bettingOdds).forEach(playerOdds => {
                 if (currentStatType === 'team_totals') {
-                    // For team totals, include both main and alternate lines
                     if (playerOdds.team_totals && Array.isArray(playerOdds.team_totals)) {
                         playerOdds.team_totals.forEach(lineObj => {
                             uniqueLines.add(lineObj.line);
@@ -1326,33 +1334,84 @@
                 return;
             }
             
-            // Clear existing buttons
+            // Calculate how many buttons can fit
+            const containerWidth = lineFilterButtons.offsetWidth || 1000; // fallback to 1000px
+            const buttonWidth = 90; // approximate width per button including gap
+            const dropdownWidth = 160; // width of "More lines..." dropdown
+            
+            // Reserve space for "All Lines" button and potential dropdown
+            let availableSpace = containerWidth - buttonWidth - dropdownWidth - 20; // 20px buffer
+            let maxVisibleButtons = Math.floor(availableSpace / buttonWidth);
+            
+            // Ensure we show at least 2 line buttons if space allows (plus All Lines)
+            maxVisibleButtons = Math.max(2, Math.min(maxVisibleButtons, sortedLines.length));
+            
+            // If we can fit all buttons comfortably, don't need dropdown
+            const needsDropdown = sortedLines.length > maxVisibleButtons;
+            
+            // Clear existing content
             lineFilterButtons.innerHTML = '';
             
             // Add "All Lines" button
             const allButton = document.createElement('button');
             allButton.className = 'line-filter-button active';
             allButton.textContent = 'All Lines';
-            allButton.onclick = () => selectLineFilter('', allButton);
+            allButton.onclick = () => selectLineFilter('', allButton, true);
             lineFilterButtons.appendChild(allButton);
             
-            // Add button for each line
-            sortedLines.forEach(line => {
+            // Add visible line buttons
+            const visibleLines = sortedLines.slice(0, maxVisibleButtons);
+            visibleLines.forEach(line => {
                 const button = document.createElement('button');
                 button.className = 'line-filter-button';
                 button.textContent = line;
-                button.onclick = () => selectLineFilter(line, button);
+                button.onclick = () => selectLineFilter(line, button, true);
                 lineFilterButtons.appendChild(button);
             });
             
-            console.log(`Populated ${uniqueLines.size} unique lines for ${currentStatType}`);
+            // Add dropdown for remaining lines if needed
+            if (needsDropdown) {
+                const dropdown = document.createElement('select');
+                dropdown.className = 'line-filter-dropdown';
+                dropdown.onchange = (e) => {
+                    if (e.target.value) {
+                        selectLineFilter(e.target.value, null, false);
+                        e.target.value = ''; // Reset dropdown
+                    }
+                };
+                
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = `More lines... (${sortedLines.length - maxVisibleButtons})`;
+                dropdown.appendChild(defaultOption);
+                
+                const remainingLines = sortedLines.slice(maxVisibleButtons);
+                remainingLines.forEach(line => {
+                    const option = document.createElement('option');
+                    option.value = line;
+                    option.textContent = line;
+                    dropdown.appendChild(option);
+                });
+                
+                lineFilterButtons.appendChild(dropdown);
+            }
+            
+            console.log(`Populated ${uniqueLines.size} unique lines for ${currentStatType} (${visibleLines.length} visible, ${needsDropdown ? sortedLines.length - maxVisibleButtons : 0} in dropdown)`);
         }
 
-        function selectLineFilter(lineValue, button) {
-            // Update active state
-            const buttons = document.querySelectorAll('.line-filter-button');
-            buttons.forEach(b => b.classList.remove('active'));
-            button.classList.add('active');
+        function selectLineFilter(lineValue, button, isButton) {
+            // Update active state on buttons only
+            if (isButton) {
+                const buttons = document.querySelectorAll('.line-filter-button');
+                buttons.forEach(b => b.classList.remove('active'));
+                if (button) {
+                    button.classList.add('active');
+                }
+            } else {
+                // Clear active state from all buttons when selecting from dropdown
+                const buttons = document.querySelectorAll('.line-filter-button');
+                buttons.forEach(b => b.classList.remove('active'));
+            }
             
             // Store selected line value for filtering
             window.selectedLineFilter = lineValue;
@@ -1360,6 +1419,29 @@
             // Trigger filter update
             handleFilterChange();
         }
+        
+        // Recalculate line filter layout on window resize
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(function() {
+                if (document.getElementById('lineFilterSection').style.display !== 'none') {
+                    const currentSelection = window.selectedLineFilter;
+                    populateLineFilter();
+                    // Restore selection after repopulating
+                    if (currentSelection) {
+                        window.selectedLineFilter = currentSelection;
+                        // Find and activate the button if it's visible
+                        const buttons = document.querySelectorAll('.line-filter-button');
+                        buttons.forEach(btn => {
+                            if (btn.textContent == currentSelection) {
+                                btn.classList.add('active');
+                            }
+                        });
+                    }
+                }
+            }, 250);
+        });
 
         function selectStat(stat) {
             currentStatType = stat;
