@@ -214,6 +214,36 @@
             color: var(--button-active-text);
         }
         
+        .line-filter-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+        }
+        
+        .line-filter-button {
+            padding: 15px;
+            background: var(--container-bg);
+            color: var(--text-primary);
+            border: 2px solid var(--input-border);
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        
+        .line-filter-button:hover {
+            border-color: var(--button-text);
+            transform: translateY(-2px);
+        }
+        
+        .line-filter-button.active {
+            background: var(--button-active-bg);
+            color: var(--button-active-text);
+            border-color: var(--button-active-bg);
+        }
+        
         .search-box {
             flex-grow: 1;
             min-width: 250px;
@@ -752,13 +782,6 @@
             </div>
             
             <div class="control-group">
-                <label>Filter by Line:</label>
-                <select id="lineFilter" onchange="handleFilterChange()" style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 150px;">
-                    <option value="">All Lines</option>
-                </select>
-            </div>
-            
-            <div class="control-group">
                 <input type="checkbox" id="hideNoLines" onchange="filterPlayers()" checked>
                 <label for="hideNoLines">Hide players without betting lines</label>
             </div>
@@ -778,6 +801,13 @@
                 <button class="stat-button" onclick="selectStat('shots')">Shots</button>
                 <button class="stat-button" onclick="selectStat('saves')">Goalie Saves</button>
                 <button class="stat-button" onclick="selectStat('team_totals')">Team Totals</button>
+            </div>
+        </div>
+        
+        <div id="lineFilterSection" style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px; transition: all 0.3s ease; display: none;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Filter by Line:</label>
+            <div class="line-filter-buttons" id="lineFilterButtons">
+                <!-- Line filter buttons will be populated dynamically -->
             </div>
         </div>
         
@@ -841,6 +871,7 @@
         let isTeamTotalsMode = false;
         let watchlist = [];
         let selectedParlayPlayers = [];
+        window.selectedLineFilter = '';
 
         // Helper function to normalize betting odds (handles both old object and new array format)
         function getLinesArray(playerOdds, statType) {
@@ -1258,7 +1289,8 @@
         }
 
         function populateLineFilter() {
-            const lineFilter = document.getElementById('lineFilter');
+            const lineFilterButtons = document.getElementById('lineFilterButtons');
+            const lineFilterSection = document.getElementById('lineFilterSection');
             const uniqueLines = new Set();
             
             // Collect all unique betting line values for the current stat type
@@ -1286,16 +1318,47 @@
             // Sort lines numerically
             const sortedLines = Array.from(uniqueLines).sort((a, b) => a - b);
             
-            lineFilter.innerHTML = '<option value="">All Lines</option>';
+            // Show/hide line filter section based on whether there are lines
+            if (sortedLines.length > 0) {
+                lineFilterSection.style.display = 'block';
+            } else {
+                lineFilterSection.style.display = 'none';
+                return;
+            }
             
+            // Clear existing buttons
+            lineFilterButtons.innerHTML = '';
+            
+            // Add "All Lines" button
+            const allButton = document.createElement('button');
+            allButton.className = 'line-filter-button active';
+            allButton.textContent = 'All Lines';
+            allButton.onclick = () => selectLineFilter('', allButton);
+            lineFilterButtons.appendChild(allButton);
+            
+            // Add button for each line
             sortedLines.forEach(line => {
-                const option = document.createElement('option');
-                option.value = line;
-                option.textContent = line;
-                lineFilter.appendChild(option);
+                const button = document.createElement('button');
+                button.className = 'line-filter-button';
+                button.textContent = line;
+                button.onclick = () => selectLineFilter(line, button);
+                lineFilterButtons.appendChild(button);
             });
             
             console.log(`Populated ${uniqueLines.size} unique lines for ${currentStatType}`);
+        }
+
+        function selectLineFilter(lineValue, button) {
+            // Update active state
+            const buttons = document.querySelectorAll('.line-filter-button');
+            buttons.forEach(b => b.classList.remove('active'));
+            button.classList.add('active');
+            
+            // Store selected line value for filtering
+            window.selectedLineFilter = lineValue;
+            
+            // Trigger filter update
+            handleFilterChange();
         }
 
         function selectStat(stat) {
@@ -1330,7 +1393,7 @@
             }
             
             document.getElementById('gameFilter').value = '';
-            document.getElementById('lineFilter').value = '';
+            window.selectedLineFilter = '';
             populateGameFilter();
             populateLineFilter();
             
@@ -1434,7 +1497,7 @@
             const hideNoLines = document.getElementById('hideNoLines').checked;
             const hideStartedGames = document.getElementById('hideStartedGames').checked;
             const selectedGame = document.getElementById('gameFilter').value;
-            const selectedLine = document.getElementById('lineFilter').value;
+            const selectedLine = window.selectedLineFilter || '';
             
             const sourceData = isGoalieMode ? allGoaliesData : allPlayersData;
             const currentTime = new Date();
@@ -1518,7 +1581,7 @@
 
         function displayPlayers() {
             const container = document.getElementById('playersContainer');
-            const selectedLine = document.getElementById('lineFilter').value;
+            const selectedLine = window.selectedLineFilter || '';
             
             const playersWithHitRates = filteredPlayers.map(player => {
                 const name = isGoalieMode ? 
@@ -1707,7 +1770,7 @@
             const container = document.getElementById('playersContainer');
             const hideStartedGames = document.getElementById('hideStartedGames').checked;
             const selectedGame = document.getElementById('gameFilter').value;
-            const selectedLine = document.getElementById('lineFilter').value;
+            const selectedLine = window.selectedLineFilter || '';
             const currentTime = new Date();
             
             // Get all unique teams from bettingOdds
@@ -1957,7 +2020,7 @@
         }
 
         function updateAllHitRates() {
-            const selectedLine = document.getElementById('lineFilter').value;
+            const selectedLine = window.selectedLineFilter || '';
             
             filteredPlayers.forEach(player => {
                 const name = isGoalieMode ? 
@@ -2117,7 +2180,7 @@
                 (player.skaterFullName || 'Unknown Player');
             
             const playerOdds = bettingOdds[name];
-            const selectedLine = document.getElementById('lineFilter').value;
+            const selectedLine = window.selectedLineFilter || '';
             let lineValue = 0.5;
             let nextOpponent = null;
             
