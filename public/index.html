@@ -277,7 +277,7 @@
             margin-top: 20px;
         }
         
-        /* Design 1: VS Badge Card Layout */
+        /* Design 1: Corner Opponent Badge */
         .player-card {
             background: var(--card-bg);
             border-radius: 16px;
@@ -288,6 +288,7 @@
             display: flex;
             flex-direction: column;
             height: 100%;
+            position: relative;
         }
         
         .player-card:hover {
@@ -296,8 +297,41 @@
             border-color: var(--card-hover-border);
         }
         
+        .opponent-corner-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            padding: 8px 18px;
+            border-bottom-left-radius: 12px;
+            box-shadow: -2px 2px 8px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        
+        body.dark-mode .opponent-corner-badge {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        }
+        
+        .opponent-corner-vs {
+            color: rgba(26, 29, 41, 0.6);
+            font-size: 9px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 2px;
+            text-align: center;
+        }
+        
+        .opponent-corner-team {
+            color: #1a1d29;
+            font-size: 16px;
+            font-weight: 900;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            letter-spacing: 0.5px;
+        }
+        
         .card-header-section {
             padding: 16px 20px;
+            padding-right: 80px;
             background: rgba(0,0,0,0.05);
             border-bottom: 2px solid var(--card-hover-border);
         }
@@ -316,7 +350,6 @@
         .player-info-section {
             flex: 1;
             min-width: 0;
-            max-width: calc(100% - 120px);
         }
         
         .player-name {
@@ -325,9 +358,10 @@
             color: var(--text-primary);
             transition: color 0.3s ease;
             margin-bottom: 4px;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
             line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
         .player-team {
@@ -337,36 +371,11 @@
             transition: color 0.3s ease;
         }
         
-        .vs-badge {
-            background: rgba(251, 191, 36, 0.15);
-            border: 2px solid #fbbf24;
-            border-radius: 10px;
-            padding: 6px 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex-shrink: 0;
-            white-space: nowrap;
-        }
-        
-        .vs-badge-text {
-            color: var(--text-secondary);
-            font-size: 11px;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-        
-        .vs-badge-team {
-            color: #fbbf24;
-            font-size: 15px;
-            font-weight: 900;
-            letter-spacing: 0.5px;
-        }
-        
         .card-body-section {
             display: grid;
             grid-template-columns: 120px 1fr;
             gap: 0;
+            flex: 1;
         }
         
         .line-panel {
@@ -444,6 +453,8 @@
         
         .stats-panel {
             padding: 20px;
+            display: flex;
+            flex-direction: column;
         }
         
         .player-stats {
@@ -481,6 +492,7 @@
             border: 1px solid rgba(16, 185, 129, 0.2);
             text-align: center;
             transition: all 0.3s ease;
+            margin-top: auto;
         }
         
         .hit-rate-label {
@@ -1986,11 +1998,11 @@
                     }
                 }
                 
-                // Build VS badge HTML
-                const vsBadgeHTML = opponentTeam ? `
-                    <div class="vs-badge">
-                        <span class="vs-badge-text">vs</span>
-                        <span class="vs-badge-team">${opponentTeam}</span>
+                // Build corner badge HTML
+                const cornerBadgeHTML = opponentTeam ? `
+                    <div class="opponent-corner-badge">
+                        <div class="opponent-corner-vs">VS</div>
+                        <div class="opponent-corner-team">${opponentTeam}</div>
                     </div>
                 ` : '';
                 
@@ -2008,13 +2020,13 @@
                 
                 return `
                     <div class="player-card" onclick="showGameLog(${player.playerId})">
+                        ${cornerBadgeHTML}
                         <div class="card-header-section">
                             <div class="player-header">
                                 <div class="player-info-section">
                                     <div class="player-name">${name}</div>
                                     <div class="player-team">${team} - ${position} | GP: ${gamesPlayed}</div>
                                 </div>
-                                ${vsBadgeHTML}
                             </div>
                         </div>
                         ${hasLine ? `
@@ -2191,23 +2203,23 @@
                     opponentTeam = teams[0] === teamAbbrev ? teams[1] : teams[0];
                 }
                 
-                // Build VS badge HTML
-                const vsBadgeHTML = opponentTeam ? `
-                    <div class="vs-badge">
-                        <span class="vs-badge-text">vs</span>
-                        <span class="vs-badge-team">${opponentTeam}</span>
+                // Build corner badge HTML
+                const cornerBadgeHTML = opponentTeam ? `
+                    <div class="opponent-corner-badge">
+                        <div class="opponent-corner-vs">VS</div>
+                        <div class="opponent-corner-team">${opponentTeam}</div>
                     </div>
                 ` : '';
                 
                 return `
                     <div class="player-card" onclick="showTeamLog('${teamName}', '${game}')">
+                        ${cornerBadgeHTML}
                         <div class="card-header-section">
                             <div class="player-header">
                                 <div class="player-info-section">
                                     <div class="player-name">${teamName}</div>
                                     <div class="player-team">${game} | ${gameTimeStr}</div>
                                 </div>
-                                ${vsBadgeHTML}
                             </div>
                         </div>
                         <div class="card-body-section">
