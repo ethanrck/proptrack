@@ -316,6 +316,7 @@
         .player-info-section {
             flex: 1;
             min-width: 0;
+            max-width: calc(100% - 120px);
         }
         
         .player-name {
@@ -324,8 +325,9 @@
             color: var(--text-primary);
             transition: color 0.3s ease;
             margin-bottom: 4px;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.2;
         }
         
         .player-team {
@@ -339,11 +341,12 @@
             background: rgba(251, 191, 36, 0.15);
             border: 2px solid #fbbf24;
             border-radius: 10px;
-            padding: 8px 16px;
+            padding: 6px 14px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             flex-shrink: 0;
+            white-space: nowrap;
         }
         
         .vs-badge-text {
@@ -355,8 +358,9 @@
         
         .vs-badge-team {
             color: #fbbf24;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 900;
+            letter-spacing: 0.5px;
         }
         
         .card-body-section {
@@ -1930,6 +1934,19 @@
                 
                 const position = isGoalieMode ? 'G' : (player.positionCode || 'N/A');
                 
+                // Team name to abbreviation mapping
+                const teamNameToAbbrev = {
+                    'Anaheim Ducks': 'ANA', 'Arizona Coyotes': 'ARI', 'Boston Bruins': 'BOS', 'Buffalo Sabres': 'BUF',
+                    'Calgary Flames': 'CGY', 'Carolina Hurricanes': 'CAR', 'Chicago Blackhawks': 'CHI', 'Colorado Avalanche': 'COL',
+                    'Columbus Blue Jackets': 'CBJ', 'Dallas Stars': 'DAL', 'Detroit Red Wings': 'DET', 'Edmonton Oilers': 'EDM',
+                    'Florida Panthers': 'FLA', 'Los Angeles Kings': 'LAK', 'Minnesota Wild': 'MIN', 'Montreal Canadiens': 'MTL',
+                    'Nashville Predators': 'NSH', 'New Jersey Devils': 'NJD', 'New York Islanders': 'NYI', 'New York Rangers': 'NYR',
+                    'Ottawa Senators': 'OTT', 'Philadelphia Flyers': 'PHI', 'Pittsburgh Penguins': 'PIT', 'San Jose Sharks': 'SJS',
+                    'Seattle Kraken': 'SEA', 'St. Louis Blues': 'STL', 'Tampa Bay Lightning': 'TBL', 'Toronto Maple Leafs': 'TOR',
+                    'Utah Hockey Club': 'UTA', 'Utah Mammoth': 'UTA', 'Vancouver Canucks': 'VAN', 'Vegas Golden Knights': 'VGK', 
+                    'Washington Capitals': 'WSH', 'Winnipeg Jets': 'WPG'
+                };
+                
                 const playerOdds = bettingOdds[name];
                 let lineValue = null;
                 let overOdds = null;
@@ -1955,13 +1972,17 @@
                     game = oddsInfo.game || 'N/A';
                     gameTime = oddsInfo.gameTime || '';
                     
-                    // Extract opponent team from game string (e.g., "TOR @ BOS" -> if player is TOR, opponent is BOS)
+                    // Extract opponent team from game string (e.g., "CAR @ Boston Bruins" -> if player is CAR, opponent is BOS)
                     if (game.includes('@')) {
                         const teams = game.split('@').map(t => t.trim());
-                        opponentTeam = teams[0] === team ? teams[1] : teams[0];
+                        let opponent = teams[0] === team ? teams[1] : teams[0];
+                        // Convert full name to abbreviation if needed
+                        opponentTeam = teamNameToAbbrev[opponent] || opponent;
                     } else if (game.includes('vs')) {
                         const teams = game.split('vs').map(t => t.trim());
-                        opponentTeam = teams[0] === team ? teams[1] : teams[0];
+                        let opponent = teams[0] === team ? teams[1] : teams[0];
+                        // Convert full name to abbreviation if needed
+                        opponentTeam = teamNameToAbbrev[opponent] || opponent;
                     }
                 }
                 
