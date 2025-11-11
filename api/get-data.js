@@ -40,8 +40,10 @@ export default async function handler(req, res) {
     console.log('Goalies:', cacheData.stats?.totalGoalies || cacheData.allGoalies?.length);
     console.log('Team shot data:', cacheData.teamShotData?.length);
     
-    // Set cache headers to allow browser caching for 5 minutes
-    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300');
+    // Disable caching to always get fresh data
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     
     return res.status(200).json(cacheData);
     
