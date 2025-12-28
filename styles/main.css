@@ -249,7 +249,7 @@ h1 {
     border: 2px solid transparent;
     display: flex;
     flex-direction: column;
-    height: 230px;
+    height: 260px;
 }
 
 .player-card:hover {
