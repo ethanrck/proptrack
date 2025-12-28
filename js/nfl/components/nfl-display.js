@@ -69,7 +69,6 @@ export async function displayNFLPlayers() {
     }
     
     // Calculate hit rates for sorting
-    const lineFilter = nflState.currentLineFilter;
     players.forEach(player => {
         const odds = player.odds;
         let lineValue;
