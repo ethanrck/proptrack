@@ -17,6 +17,7 @@ export const TEAM_ABBREV_MAP = {
     'Los Angeles Kings': 'LAK',
     'Minnesota Wild': 'MIN',
     'Montreal Canadiens': 'MTL',
+    'Montréal Canadiens': 'MTL',
     'Nashville Predators': 'NSH',
     'New Jersey Devils': 'NJD',
     'New York Islanders': 'NYI',
@@ -27,6 +28,7 @@ export const TEAM_ABBREV_MAP = {
     'San Jose Sharks': 'SJS',
     'Seattle Kraken': 'SEA',
     'St. Louis Blues': 'STL',
+    'St Louis Blues': 'STL',
     'Tampa Bay Lightning': 'TBL',
     'Toronto Maple Leafs': 'TOR',
     'Utah Hockey Club': 'UTA',
@@ -74,12 +76,21 @@ export const ABBREV_TO_FULL = {
     'UTH': 'Utah Hockey Club'
 };
 
+// Alternate team name spellings for matching
+export const TEAM_NAME_ALIASES = {
+    'St Louis Blues': 'St. Louis Blues',
+    'St. Louis Blues': 'St. Louis Blues',
+    'Montreal Canadiens': 'Montreal Canadiens',
+    'Montréal Canadiens': 'Montreal Canadiens'
+};
+
 export const TEAM_MASCOTS = {
     'Toronto Maple Leafs': 'Maple Leafs',
     'Boston Bruins': 'Bruins',
     'Tampa Bay Lightning': 'Lightning',
     'Florida Panthers': 'Panthers',
     'Montreal Canadiens': 'Canadiens',
+    'Montréal Canadiens': 'Canadiens',
     'Ottawa Senators': 'Senators',
     'Buffalo Sabres': 'Sabres',
     'Detroit Red Wings': 'Red Wings',
@@ -98,6 +109,7 @@ export const TEAM_MASCOTS = {
     'Dallas Stars': 'Stars',
     'Chicago Blackhawks': 'Blackhawks',
     'St. Louis Blues': 'Blues',
+    'St Louis Blues': 'Blues',
     'Vegas Golden Knights': 'Golden Knights',
     'Edmonton Oilers': 'Oilers',
     'Calgary Flames': 'Flames',

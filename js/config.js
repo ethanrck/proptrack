@@ -1,4 +1,4 @@
-// js/config.js - Configuration for PropTrack
+// js/config.js - Configuration for DangleData
 
 // Auto-detect API URL based on current domain
 // For local development, this will be localhost
@@ -6,11 +6,11 @@
 export const API_BASE_URL = window.location.origin;
 
 // Uncomment and update for separate backend deployment:
-// export const API_BASE_URL = 'https://proptrack-backend.vercel.app';
+// export const API_BASE_URL = 'https://dangledata.vercel.app';
 
 // App configuration
 export const APP_CONFIG = {
-    name: 'PropTrack',
+    name: 'DangleData',
     version: '2.0.0',
     defaultStatType: 'points',
     defaultDarkMode: true

@@ -89,6 +89,9 @@ export function showGameLog(playerId) {
         });
     }
     
+    // Limit to last 10 games
+    games = games.slice(0, 10);
+    
     // Calculate stats
     let hits = 0;
     let totalValue = 0;
@@ -184,7 +187,7 @@ export function showGameLog(playerId) {
     const modalContent = document.getElementById('modalContent');
     
     modalContent.innerHTML = `
-        <h2>${name}</h2>
+        <h2 style="color: white;">${name}</h2>
         <p style="color: var(--text-secondary);">${player.teamAbbrevs} | GP: ${player.gamesPlayed}</p>
         
         <div class="summary-stats">
@@ -212,7 +215,9 @@ export function showGameLog(playerId) {
             </div>
         ` : ''}
         
-        <h3>Last ${games.length} Games</h3>
+        ${h2hSection}
+        
+        <h3 style="color: white;">Last ${games.length} Games</h3>
         <table>
             <thead>
                 <tr>
@@ -236,8 +241,6 @@ export function showGameLog(playerId) {
                 ${gameRows}
             </tbody>
         </table>
-        
-        ${h2hSection}
     `;
     
     modal.style.display = 'block';
@@ -461,7 +464,7 @@ export async function showTeamLog(teamName, game) {
     
     // Render modal
     modalContent.innerHTML = `
-        <h2>${teamName}</h2>
+        <h2 style="color: white;">${teamName}</h2>
         <p style="color: var(--text-secondary);">vs ${opponentFull || 'Unknown'}</p>
         
         <div class="summary-stats">
@@ -477,7 +480,7 @@ export async function showTeamLog(teamName, game) {
             ` : ''}
         </div>
         
-        <h3>Last ${games.length} Games</h3>
+        <h3 style="color: white;">Last ${games.length} Games</h3>
         <table>
             <thead>
                 <tr>

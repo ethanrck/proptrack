@@ -14,13 +14,16 @@ export function getHitRateColor(hitRate) {
 
 /**
  * Normalize team name for comparison
+ * Handles accents (Montréal -> Montreal) and periods (St. -> St)
  */
 export function normalizeTeamName(name) {
+    if (!name) return '';
     return name
         .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .replace(/St\./g, 'St')
-        .replace(/\s+/g, ' ')
+        .replace(/[\u0300-\u036f]/g, '')  // Remove accents
+        .replace(/St\./g, 'St')           // Remove period from St.
+        .replace(/\./g, '')               // Remove any other periods
+        .replace(/\s+/g, ' ')             // Normalize whitespace
         .trim()
         .toLowerCase();
 }
