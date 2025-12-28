@@ -323,63 +323,91 @@ async function fetchBettingOdds(todaysGames) {
     
     const bettingOdds = {};
     
-    for (const game of todaysGames) {
-        try {
-            // Get event odds
-            const marketsParam = NFL_ODDS_MARKETS.join(',');
-            const url = `${ODDS_API_BASE}/sports/americanfootball_nfl/events/${game.id}/odds?apiKey=${apiKey}&regions=us&markets=${marketsParam}&oddsFormat=american`;
-            
-            const response = await fetch(url);
-            if (!response.ok) continue;
-            
-            const data = await response.json();
-            
-            // Parse odds for each bookmaker
-            data.bookmakers?.forEach(bookmaker => {
-                bookmaker.markets?.forEach(market => {
-                    market.outcomes?.forEach(outcome => {
-                        const playerName = outcome.description || outcome.name;
-                        if (!playerName) return;
-                        
-                        if (!bettingOdds[playerName]) {
-                            bettingOdds[playerName] = {};
-                        }
-                        
-                        const propType = marketToPropType(market.key);
-                        if (!propType) return;
-                        
-                        // Handle anytime TD (no line)
-                        if (propType === 'anytime_td') {
-                            bettingOdds[playerName][propType] = {
-                                price: outcome.price,
-                                bookmaker: bookmaker.key
-                            };
-                        } else {
-                            // O/U props
-                            if (!bettingOdds[playerName][propType]) {
-                                bettingOdds[playerName][propType] = [];
+    try {
+        // First, get events from The Odds API (their event IDs are different from ESPN)
+        const eventsUrl = `${ODDS_API_BASE}/sports/americanfootball_nfl/events?apiKey=${apiKey}`;
+        const eventsResponse = await fetch(eventsUrl);
+        
+        if (!eventsResponse.ok) {
+            console.error('Failed to fetch NFL events from Odds API:', eventsResponse.status);
+            return {};
+        }
+        
+        const events = await eventsResponse.json();
+        console.log(`Found ${events.length} events from Odds API`);
+        
+        // Filter to today's events
+        const today = new Date().toISOString().split('T')[0];
+        const todaysEvents = events.filter(event => {
+            const eventDate = event.commence_time?.split('T')[0];
+            return eventDate === today;
+        });
+        
+        console.log(`Found ${todaysEvents.length} events for today`);
+        
+        // Fetch odds for each event
+        for (const event of todaysEvents) {
+            try {
+                const marketsParam = NFL_ODDS_MARKETS.join(',');
+                const url = `${ODDS_API_BASE}/sports/americanfootball_nfl/events/${event.id}/odds?apiKey=${apiKey}&regions=us&markets=${marketsParam}&oddsFormat=american`;
+                
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.log(`No odds for event ${event.id}: ${response.status}`);
+                    continue;
+                }
+                
+                const data = await response.json();
+                
+                // Parse odds for each bookmaker
+                data.bookmakers?.forEach(bookmaker => {
+                    bookmaker.markets?.forEach(market => {
+                        market.outcomes?.forEach(outcome => {
+                            const playerName = outcome.description || outcome.name;
+                            if (!playerName) return;
+                            
+                            if (!bettingOdds[playerName]) {
+                                bettingOdds[playerName] = {};
                             }
                             
-                            const line = outcome.point;
-                            let existing = bettingOdds[playerName][propType].find(o => o.line === line);
+                            const propType = marketToPropType(market.key);
+                            if (!propType) return;
                             
-                            if (!existing) {
-                                existing = { line, bookmaker: bookmaker.key };
-                                bettingOdds[playerName][propType].push(existing);
+                            // Handle anytime TD (no line)
+                            if (propType === 'anytime_td') {
+                                bettingOdds[playerName][propType] = {
+                                    price: outcome.price,
+                                    bookmaker: bookmaker.key
+                                };
+                            } else {
+                                // O/U props
+                                if (!bettingOdds[playerName][propType]) {
+                                    bettingOdds[playerName][propType] = [];
+                                }
+                                
+                                const line = outcome.point;
+                                let existing = bettingOdds[playerName][propType].find(o => o.line === line);
+                                
+                                if (!existing) {
+                                    existing = { line, bookmaker: bookmaker.key };
+                                    bettingOdds[playerName][propType].push(existing);
+                                }
+                                
+                                if (outcome.name === 'Over') {
+                                    existing.overOdds = outcome.price;
+                                } else if (outcome.name === 'Under') {
+                                    existing.underOdds = outcome.price;
+                                }
                             }
-                            
-                            if (outcome.name === 'Over') {
-                                existing.overOdds = outcome.price;
-                            } else if (outcome.name === 'Under') {
-                                existing.underOdds = outcome.price;
-                            }
-                        }
+                        });
                     });
                 });
-            });
-        } catch (error) {
-            console.error(`Error fetching odds for game ${game.id}:`, error);
+            } catch (error) {
+                console.error(`Error fetching odds for event ${event.id}:`, error);
+            }
         }
+    } catch (error) {
+        console.error('Error fetching betting odds:', error);
     }
     
     return bettingOdds;
