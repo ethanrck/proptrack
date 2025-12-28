@@ -335,13 +335,13 @@ export function showGameLog(playerId) {
     let badgeLegend = '';
     if (statType === 'shots' || isGoalie) {
         badgeLegend = `
-            <div style="margin: 10px 0; padding: 8px; background: var(--container-bg); border-radius: 6px; font-size: 0.85em;">
-                <span style="font-weight: 600;">Badge Colors:</span>
-                <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">#1-10</span> 
+            <div style="margin: 15px 0; padding: 12px 15px; background: var(--card-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 0.85em;">
+                <span style="font-weight: 600; color: white;">Badge Colors:</span>
+                <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 10px;">#1-10</span> 
                 <span style="color: var(--text-secondary);">${isGoalie ? 'Fewest shots (harder)' : 'Allow most shots (easier)'}</span>
-                <span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">#11-22</span> 
+                <span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 10px;">#11-22</span> 
                 <span style="color: var(--text-secondary);">Medium</span>
-                <span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">#23-32</span> 
+                <span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 10px;">#23-32</span> 
                 <span style="color: var(--text-secondary);">${isGoalie ? 'Most shots (easier)' : 'Allow fewest shots (harder)'}</span>
             </div>
         `;
@@ -498,7 +498,7 @@ function renderH2HSection(stats, opponent, lineValue) {
         return `
             <div style="background: var(--card-bg); border: 2px solid var(--card-hover-border); border-radius: 10px; padding: 15px; margin: 15px 0;">
                 <div style="text-align: center; margin-bottom: 15px;">
-                    <span style="color: #e67e22; font-weight: bold;">🏒 Head-to-Head vs ${oppName} (Last ${stats.games} games)</span>
+                    <span style="color: #e67e22; font-weight: bold;">🏒 Head-to-Head vs ${oppName} this season</span>
                 </div>
                 <div class="h2h-stats">
                     <div class="h2h-stat">
@@ -534,7 +534,7 @@ function renderH2HSection(stats, opponent, lineValue) {
         return `
             <div style="background: var(--card-bg); border: 2px solid var(--card-hover-border); border-radius: 10px; padding: 15px; margin: 15px 0;">
                 <div style="text-align: center; margin-bottom: 15px;">
-                    <span style="color: #e67e22; font-weight: bold;">🏒 Head-to-Head vs ${oppName} (Last ${stats.games} games)</span>
+                    <span style="color: #e67e22; font-weight: bold;">🏒 Head-to-Head vs ${oppName} this season</span>
                 </div>
                 <div class="h2h-stats">
                     <div class="h2h-stat">

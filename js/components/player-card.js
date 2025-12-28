@@ -70,13 +70,13 @@ export function renderPlayerCard(player, selectedLine) {
             if (statType === 'goals' && oddsInfo.type === 'anytime_scorer') {
                 const formattedOdds = formatOdds(price);
                 oddsDisplay = `
-                    <div class="odds-line" onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${line}, ${price}, '${game}', '${gameTime}')">
+                    <div class="odds-box" onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${line}, ${price}, '${game}', '${gameTime}')">
                         Anytime Goal ${formattedOdds}
                     </div>
                 `;
             } else {
                 oddsDisplay = `
-                    <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px; background: var(--warning-bg); padding: 8px; border-radius: 6px;">
+                    <div class="odds-box">
                         <div style="font-weight: bold; font-size: 1.5em; color: #e67e22; pointer-events: none;">${line}</div>
                         ${overOdds != null ? `
                             <div onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${line}, ${overOdds}, '${game}', '${gameTime}', 'over')" 
