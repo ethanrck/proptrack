@@ -169,7 +169,7 @@ export function populateGameFilter() {
 }
 
 /**
- * Populate line filter buttons
+ * Populate line filter buttons - responsive layout that wraps based on container width
  */
 export function populateLineFilter() {
     const container = document.getElementById('lineFilterButtons');
@@ -179,9 +179,10 @@ export function populateLineFilter() {
     const statType = state.currentStatType;
     const bettingOdds = state.bettingOdds;
     
+    // Collect unique lines based on mode
+    const uniqueLines = new Set();
+    
     if (state.isTeamTotalsMode) {
-        // Get unique lines from team totals
-        const uniqueLines = new Set();
         Object.values(bettingOdds).forEach(teamOdds => {
             if (teamOdds.team_totals) {
                 teamOdds.team_totals.forEach(lineObj => uniqueLines.add(lineObj.line));
@@ -190,75 +191,29 @@ export function populateLineFilter() {
                 teamOdds.alternate_team_totals.forEach(lineObj => uniqueLines.add(lineObj.line));
             }
         });
-        
-        const sortedLines = Array.from(uniqueLines).sort((a, b) => a - b);
-        
-        if (sortedLines.length > 1) {
-            section.style.display = 'block';
-            container.innerHTML = `
-                <button class="line-filter-button all-lines active" onclick="window.proptrack.setLineFilter('')">All Lines</button>
-                ${sortedLines.map(line => `
-                    <button class="line-filter-button" onclick="window.proptrack.setLineFilter('${line}')">${line}</button>
-                `).join('')}
-            `;
-        } else {
-            section.style.display = 'none';
-        }
-        return;
-    }
-    
-    // For player stats
-    const uniqueLines = new Set();
-    Object.values(bettingOdds).forEach(playerOdds => {
-        const lines = getLinesArray(playerOdds, statType);
-        lines.forEach(lineObj => {
-            if (lineObj.line !== undefined) {
-                uniqueLines.add(lineObj.line);
-            }
+    } else {
+        Object.values(bettingOdds).forEach(playerOdds => {
+            const lines = getLinesArray(playerOdds, statType);
+            lines.forEach(lineObj => {
+                if (lineObj.line !== undefined) {
+                    uniqueLines.add(lineObj.line);
+                }
+            });
         });
-    });
+    }
     
     const sortedLines = Array.from(uniqueLines).sort((a, b) => a - b);
     
     if (sortedLines.length > 1) {
         section.style.display = 'block';
         
-        // For non-shots, show common lines as buttons
-        let buttonsHtml = `<button class="line-filter-button all-lines active" onclick="window.proptrack.setLineFilter('')">All Lines</button>`;
-        
-        if (statType !== 'shots') {
-            const commonLines = sortedLines.filter(l => l <= 2.5);
-            commonLines.forEach(line => {
-                buttonsHtml += `<button class="line-filter-button" onclick="window.proptrack.setLineFilter('${line}')">${line}</button>`;
-            });
-            
-            // Add dropdown for higher lines
-            const higherLines = sortedLines.filter(l => l > 2.5);
-            if (higherLines.length > 0) {
-                buttonsHtml += `
-                    <select class="line-filter-dropdown" onchange="window.proptrack.setLineFilter(this.value)">
-                        <option value="">More Lines...</option>
-                        ${higherLines.map(l => `<option value="${l}">${l}+</option>`).join('')}
-                    </select>
-                `;
-            }
-        } else {
-            // For shots, show all as buttons or dropdown
-            if (sortedLines.length <= 8) {
-                sortedLines.forEach(line => {
-                    buttonsHtml += `<button class="line-filter-button" onclick="window.proptrack.setLineFilter('${line}')">${line}</button>`;
-                });
-            } else {
-                buttonsHtml += `
-                    <select class="line-filter-dropdown" onchange="window.proptrack.setLineFilter(this.value)">
-                        <option value="">Select Line...</option>
-                        ${sortedLines.map(l => `<option value="${l}">${l}+</option>`).join('')}
-                    </select>
-                `;
-            }
-        }
-        
-        container.innerHTML = buttonsHtml;
+        // Show all lines as buttons - CSS handles wrapping
+        container.innerHTML = `
+            <button class="line-filter-button all-lines active" onclick="window.proptrack.setLineFilter('')">All Lines</button>
+            ${sortedLines.map(line => `
+                <button class="line-filter-button" onclick="window.proptrack.setLineFilter('${line}')">${line}</button>
+            `).join('')}
+        `;
     } else {
         section.style.display = 'none';
     }
@@ -279,12 +234,6 @@ export function setLineFilter(value) {
             btn.classList.add('active');
         }
     });
-    
-    // Update dropdown if exists
-    const dropdown = document.querySelector('.line-filter-dropdown');
-    if (dropdown && !document.querySelector(`.line-filter-button[onclick*="'${value}'"]`)) {
-        dropdown.value = value;
-    }
     
     if (state.isTeamTotalsMode) {
         displayTeams();

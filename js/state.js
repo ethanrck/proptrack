@@ -13,7 +13,8 @@ class AppState {
         
         // Team data
         this.teamShotData = [];
-        this.teamScheduleCache = {};
+        this.teamSchedules = {};  // Pre-cached from cron job
+        this.teamScheduleCache = {};  // Runtime fallback cache
         
         // Betting data
         this.bettingOdds = {};
@@ -82,6 +83,11 @@ class AppState {
     setTeamShotData(data) {
         this.teamShotData = data;
         this._notify('teamShotData', data);
+    }
+    
+    setTeamSchedules(schedules) {
+        this.teamSchedules = schedules || {};
+        this._notify('teamSchedules', this.teamSchedules);
     }
     
     setBettingOdds(odds) {
@@ -203,12 +209,18 @@ class AppState {
         return this.allGameLogs;
     }
     
-    // Cache team schedule data
+    // Cache team schedule data (runtime fallback)
     cacheTeamSchedule(teamAbbrev, games) {
         this.teamScheduleCache[teamAbbrev] = games;
     }
     
+    // Get team schedule - checks pre-cached first, then runtime cache
     getTeamSchedule(teamAbbrev) {
+        // First check pre-cached data from cron job
+        if (this.teamSchedules[teamAbbrev]) {
+            return this.teamSchedules[teamAbbrev];
+        }
+        // Then check runtime cache
         return this.teamScheduleCache[teamAbbrev] || null;
     }
 }

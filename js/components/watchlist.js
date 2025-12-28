@@ -22,8 +22,13 @@ class WatchlistUI {
         state.subscribe('watchlist', () => this.render());
         state.subscribe('parlaySelection', () => this.render());
         
-        // Initial render
+        // Initial load and render
         state.loadWatchlist();
+        
+        // Check if empty on init
+        if (state.watchlist.length === 0 && container) {
+            container.classList.add('empty');
+        }
     }
 
     toggle() {
@@ -47,13 +52,16 @@ class WatchlistUI {
             overUnder: overUnder || null
         });
         
-        // Open watchlist when adding
+        // Open watchlist when adding and remove empty class
         if (added) {
             const container = document.getElementById('watchlistContainer');
-            if (container && container.classList.contains('minimized')) {
-                container.classList.remove('minimized');
-                this.isMinimized = false;
-                localStorage.setItem('watchlistMinimized', false);
+            if (container) {
+                container.classList.remove('empty');
+                if (container.classList.contains('minimized')) {
+                    container.classList.remove('minimized');
+                    this.isMinimized = false;
+                    localStorage.setItem('watchlistMinimized', false);
+                }
             }
         }
         
@@ -72,11 +80,21 @@ class WatchlistUI {
 
     render() {
         const container = document.getElementById('watchlistItems');
+        const watchlistContainer = document.getElementById('watchlistContainer');
         const countSpan = document.getElementById('watchlistCount');
         
         if (!container) return;
         
         const { watchlist, selectedParlayPlayers } = state;
+        
+        // Toggle empty class on container
+        if (watchlistContainer) {
+            if (watchlist.length === 0) {
+                watchlistContainer.classList.add('empty');
+            } else {
+                watchlistContainer.classList.remove('empty');
+            }
+        }
         
         // Update count with parlay badge
         if (countSpan) {
@@ -88,7 +106,7 @@ class WatchlistUI {
         }
         
         if (watchlist.length === 0) {
-            container.innerHTML = '<div class="watchlist-empty">⭐ Click on betting lines to add players to your watchlist</div>';
+            container.innerHTML = '';
             renderParlayCalculator();
             return;
         }

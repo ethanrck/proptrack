@@ -60,6 +60,7 @@ async function loadCachedData() {
         state.setGameLogs(data.gameLogs || {});
         state.setGoalieGameLogs(data.goalieGameLogs || {});
         state.setTeamShotData(data.teamShotData || []);
+        state.setTeamSchedules(data.teamSchedules || {});
         state.setBettingOdds(data.bettingOdds || {});
         
         // Set initial filtered players

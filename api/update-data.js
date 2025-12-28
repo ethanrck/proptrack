@@ -522,6 +522,74 @@ export default async function handler(req, res) {
 
     console.log(`Goalie game logs: ${goalieSuccessCount} success, ${goalieErrorCount} errors (${Date.now() - startTime}ms)`);
 
+    // Step 6.5: Fetch team schedules for team totals hit rates
+    console.log('Fetching team schedules...');
+    const teamSchedules = {};
+    const teamAbbrevs = ['ANA', 'ARI', 'BOS', 'BUF', 'CGY', 'CAR', 'CHI', 'COL', 'CBJ', 'DAL', 
+                         'DET', 'EDM', 'FLA', 'LAK', 'MIN', 'MTL', 'NSH', 'NJD', 'NYI', 'NYR', 
+                         'OTT', 'PHI', 'PIT', 'SJS', 'SEA', 'STL', 'TBL', 'TOR', 'UTA', 'VAN', 
+                         'VGK', 'WSH', 'WPG'];
+    
+    let teamScheduleSuccessCount = 0;
+    const currentDate = new Date();
+    
+    // Fetch schedules in batches
+    const teamBatchSize = 10;
+    for (let i = 0; i < teamAbbrevs.length; i += teamBatchSize) {
+      const batch = teamAbbrevs.slice(i, i + teamBatchSize);
+      
+      const teamResults = await Promise.allSettled(
+        batch.map(async abbrev => {
+          try {
+            let allGames = [];
+            // Fetch current month and previous 2 months
+            for (let m = 0; m < 3 && allGames.length < 15; m++) {
+              const monthDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - m, 1);
+              const monthStr = `${monthDate.getFullYear()}-${String(monthDate.getMonth() + 1).padStart(2, '0')}`;
+              
+              const scheduleUrl = `https://api-web.nhle.com/v1/club-schedule/${abbrev}/month/${monthStr}`;
+              const response = await fetch(scheduleUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0' }
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (data?.games) {
+                  const completedGames = data.games.filter(g => 
+                    (g.gameState === 'OFF' || g.gameState === 'FINAL') &&
+                    g.homeTeam?.score !== undefined &&
+                    g.awayTeam?.score !== undefined
+                  );
+                  allGames.push(...completedGames);
+                }
+              }
+            }
+            
+            // Sort by date descending and take last 15 games
+            allGames.sort((a, b) => new Date(b.gameDate) - new Date(a.gameDate));
+            return { abbrev, games: allGames.slice(0, 15) };
+          } catch (err) {
+            return { abbrev, games: [] };
+          }
+        })
+      );
+      
+      teamResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value.games.length > 0) {
+          teamSchedules[result.value.abbrev] = result.value.games;
+          teamScheduleSuccessCount++;
+        }
+      });
+      
+      console.log(`Processed ${Math.min(i + teamBatchSize, teamAbbrevs.length)}/${teamAbbrevs.length} team schedules`);
+      
+      if (i + teamBatchSize < teamAbbrevs.length) {
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+    
+    console.log(`Team schedules: ${teamScheduleSuccessCount} teams loaded (${Date.now() - startTime}ms)`);
+
     // Step 7: Schedule dynamic pre-game update with QStash
     if (nextGameTime && process.env.QSTASH_TOKEN) {
       try {
@@ -577,12 +645,14 @@ export default async function handler(req, res) {
       gameLogs: gameLogsData,
       goalieGameLogs: goalieGameLogsData,
       teamShotData: teamShotData,
+      teamSchedules: teamSchedules,
       bettingOdds,
       stats: {
         totalPlayers: playersWithGames.length,
         totalGoalies: goaliesWithGames.length,
         gameLogsLoaded: successCount,
         goalieLogsLoaded: goalieSuccessCount,
+        teamSchedulesLoaded: teamScheduleSuccessCount,
         errors: errorCount + goalieErrorCount,
         bettingLinesLoaded: Object.keys(bettingOdds).length,
         oddsError,
