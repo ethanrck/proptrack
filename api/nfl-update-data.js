@@ -63,12 +63,17 @@ export default async function handler(request, response) {
         const bettingOdds = await fetchBettingOdds(todaysGames);
         console.log(`Fetched betting odds for ${Object.keys(bettingOdds).length} players`);
         
-        // 6. Combine and save data
+        // 6. Fetch team defensive stats
+        const teamDefense = await fetchTeamDefenseStats();
+        console.log(`Fetched defensive stats for ${Object.keys(teamDefense).length} teams`);
+        
+        // 7. Combine and save data
         const data = {
             players,
             gameLogs,
             bettingOdds,
             todaysGames,
+            teamDefense,
             lastUpdated: new Date().toISOString()
         };
         
@@ -94,6 +99,105 @@ export default async function handler(request, response) {
             message: error.message 
         });
     }
+}
+
+/**
+ * Fetch team defensive stats from ESPN
+ */
+async function fetchTeamDefenseStats() {
+    const teamDefense = {};
+    
+    try {
+        // Fetch team stats from ESPN
+        const url = 'https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams?limit=32';
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        const teams = data.sports?.[0]?.leagues?.[0]?.teams || [];
+        
+        // Initialize stats for all teams
+        for (const teamData of teams) {
+            const team = teamData.team;
+            const abbr = team.abbreviation;
+            
+            teamDefense[abbr] = {
+                name: team.displayName,
+                abbreviation: abbr,
+                passYardsAllowed: 0,
+                rushYardsAllowed: 0,
+                pointsAllowed: 0,
+                passYardsRank: 16,
+                rushYardsRank: 16,
+                pointsRank: 16
+            };
+        }
+        
+        // Fetch defensive stats
+        const defenseUrl = 'https://site.web.api.espn.com/apis/v2/sports/football/nfl/standings?season=2024&type=0&level=3';
+        const defResponse = await fetch(defenseUrl);
+        
+        if (defResponse.ok) {
+            const defData = await defResponse.json();
+            // Parse defensive stats from standings data
+            // This is a fallback - actual defensive stats would need another endpoint
+        }
+        
+        // Alternative: fetch from team stats page
+        for (const abbr of Object.keys(teamDefense)) {
+            try {
+                const teamStatsUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams/${abbr}/statistics`;
+                const statsResponse = await fetch(teamStatsUrl);
+                
+                if (statsResponse.ok) {
+                    const statsData = await statsResponse.json();
+                    
+                    // Look for defensive stats in the response
+                    const defenseStats = statsData.results?.stats?.categories?.find(c => c.name === 'defensive') ||
+                                        statsData.splits?.categories?.find(c => c.name === 'defensive');
+                    
+                    if (defenseStats) {
+                        const stats = defenseStats.stats || [];
+                        
+                        const passYards = stats.find(s => s.name === 'netPassingYardsPerGame' || s.name === 'passingYardsAllowed');
+                        const rushYards = stats.find(s => s.name === 'rushingYardsPerGame' || s.name === 'rushingYardsAllowed');
+                        const points = stats.find(s => s.name === 'pointsAgainst' || s.name === 'pointsAllowed');
+                        
+                        if (passYards) teamDefense[abbr].passYardsAllowed = parseFloat(passYards.value) || 0;
+                        if (rushYards) teamDefense[abbr].rushYardsAllowed = parseFloat(rushYards.value) || 0;
+                        if (points) teamDefense[abbr].pointsAllowed = parseFloat(points.value) || 0;
+                    }
+                }
+            } catch (e) {
+                // Skip errors for individual teams
+            }
+        }
+        
+        // Calculate rankings (1 = best defense, 32 = worst)
+        const teamList = Object.values(teamDefense);
+        
+        // Sort by pass yards allowed (ascending - lower is better defense)
+        teamList.sort((a, b) => a.passYardsAllowed - b.passYardsAllowed);
+        teamList.forEach((team, idx) => {
+            teamDefense[team.abbreviation].passYardsRank = idx + 1;
+        });
+        
+        // Sort by rush yards allowed
+        teamList.sort((a, b) => a.rushYardsAllowed - b.rushYardsAllowed);
+        teamList.forEach((team, idx) => {
+            teamDefense[team.abbreviation].rushYardsRank = idx + 1;
+        });
+        
+        // Sort by points allowed
+        teamList.sort((a, b) => a.pointsAllowed - b.pointsAllowed);
+        teamList.forEach((team, idx) => {
+            teamDefense[team.abbreviation].pointsRank = idx + 1;
+        });
+        
+    } catch (error) {
+        console.error('Error fetching team defense stats:', error);
+    }
+    
+    return teamDefense;
 }
 
 /**

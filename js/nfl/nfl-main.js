@@ -17,6 +17,7 @@ export async function initNFL() {
         setPropType,
         setLineFilter,
         handleSearch,
+        filterByGame,
         showGameLog: showNFLGameLog,
         closeModal: closeNFLModal,
         addToWatchlist: addToNFLWatchlist,
@@ -93,7 +94,17 @@ async function setPropType(propType) {
  * Set line filter and refresh display
  */
 async function setLineFilter(filter) {
-    nflState.setLineFilter(filter);
+    // Convert 'all' string or keep number
+    const filterValue = filter === 'all' ? 'all' : parseFloat(filter);
+    nflState.setLineFilter(filterValue);
+    await displayNFLPlayers();
+}
+
+/**
+ * Filter by game
+ */
+async function filterByGame(gameId) {
+    nflState.setGameFilter(gameId === '' ? 'all' : gameId);
     await displayNFLPlayers();
 }
 

@@ -30,6 +30,9 @@ export async function fetchNFLData() {
         if (data.todaysGames) {
             nflState.setTodaysGames(data.todaysGames);
         }
+        if (data.teamDefense) {
+            nflState.setTeamDefense(data.teamDefense);
+        }
         if (data.lastUpdated) {
             nflState.setLastUpdated(new Date(data.lastUpdated));
         }

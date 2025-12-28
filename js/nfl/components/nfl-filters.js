@@ -28,7 +28,7 @@ export function renderNFLPropTypeSelector() {
 }
 
 /**
- * Render line filter buttons
+ * Render line filter - buttons if they fit, dropdown if too many
  */
 export function renderNFLLineFilters() {
     const currentProp = nflState.currentPropType;
@@ -46,10 +46,33 @@ export function renderNFLLineFilters() {
         return '';
     }
     
+    // Calculate if buttons would fit - assume ~70px per button, ~1200px container width
+    const buttonWidth = 70;
+    const containerWidth = 1200;
+    const maxButtons = Math.floor(containerWidth / buttonWidth) - 2; // -2 for "All Lines" and padding
+    
+    // Use dropdown if more than maxButtons lines
+    if (lines.length > maxButtons) {
+        const options = lines.map(line => `
+            <option value="${line}" ${currentFilter === line ? 'selected' : ''}>${line}</option>
+        `).join('');
+        
+        return `
+            <div id="lineFilterSection" style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Filter by Line:</label>
+                <select id="nfl-line-filter" onchange="window.nflProptrack.setLineFilter(this.value)" 
+                        style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 150px;">
+                    <option value="all" ${currentFilter === 'all' ? 'selected' : ''}>All Lines</option>
+                    ${options}
+                </select>
+            </div>
+        `;
+    }
+    
+    // Use buttons if they fit
     const allButton = `
         <button class="line-filter-button ${currentFilter === 'all' ? 'active' : ''}"
-                onclick="window.nflProptrack.setLineFilter('all')"
-                style="padding: 8px 16px;">
+                onclick="window.nflProptrack.setLineFilter('all')">
             All Lines
         </button>
     `;
@@ -62,66 +85,52 @@ export function renderNFLLineFilters() {
     `).join('');
     
     return `
-        <div class="line-filters">
-            <span style="color: var(--text-secondary); margin-right: 10px;">Filter by line:</span>
-            ${allButton}
-            ${lineButtons}
+        <div id="lineFilterSection" style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Filter by Line:</label>
+            <div class="line-filter-buttons">
+                ${allButton}
+                ${lineButtons}
+            </div>
         </div>
     `;
 }
 
 /**
- * Render position filter (optional)
+ * Render today's games section - same format as NHL
  */
-export function renderNFLPositionFilter() {
-    const currentProp = nflState.currentPropType;
-    const propConfig = NFL_PROP_TYPES[currentProp];
+export function renderNFLTodaysGames() {
+    const games = nflState.todaysGames;
     
-    if (!propConfig || propConfig.positions.length <= 1) {
+    if (!games || games.length === 0) {
         return '';
     }
     
-    // For props that span multiple positions, show position filter
-    const positions = propConfig.positions;
+    const gamesList = games.map(game => {
+        const time = game.startTime ? new Date(game.startTime).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        }) : '';
+        
+        return `${game.awayTeam} @ ${game.homeTeam} - ${time}`;
+    }).join(' | ');
     
     return `
-        <div class="position-filters" style="margin-top: 10px;">
-            <span style="color: var(--text-secondary); margin-right: 10px;">Position:</span>
-            <button class="line-filter-button active" onclick="window.nflProptrack.setPositionFilter('all')">
-                All
-            </button>
-            ${positions.map(pos => `
-                <button class="line-filter-button" onclick="window.nflProptrack.setPositionFilter('${pos}')">
-                    ${pos}
-                </button>
-            `).join('')}
+        <div style="background: var(--card-bg); padding: 15px 20px; border-radius: 10px; margin-bottom: 20px;">
+            <strong style="color: var(--text-primary);">🏈 Today's Games:</strong>
+            <span style="color: var(--text-secondary); margin-left: 10px;">${gamesList}</span>
         </div>
     `;
 }
 
 /**
- * Render search box
- */
-export function renderNFLSearch() {
-    return `
-        <div class="search-container">
-            <input type="text" 
-                   id="nfl-player-search" 
-                   class="search-input" 
-                   placeholder="Search players..."
-                   oninput="window.nflProptrack.handleSearch(this.value)">
-        </div>
-    `;
-}
-
-/**
- * Render game filter (filter by matchup)
+ * Render game filter dropdown
  */
 export function renderNFLGameFilter() {
     const games = nflState.todaysGames;
     
     if (!games || games.length === 0) {
-        return '';
+        return '<option value="">No games today</option>';
     }
     
     const gameOptions = games.map(game => `
@@ -129,13 +138,8 @@ export function renderNFLGameFilter() {
     `).join('');
     
     return `
-        <div class="game-filter" style="margin-top: 10px;">
-            <span style="color: var(--text-secondary); margin-right: 10px;">Game:</span>
-            <select id="nfl-game-filter" onchange="window.nflProptrack.filterByGame(this.value)">
-                <option value="all">All Games</option>
-                ${gameOptions}
-            </select>
-        </div>
+        <option value="">All Games</option>
+        ${gameOptions}
     `;
 }
 
@@ -144,10 +148,27 @@ export function renderNFLGameFilter() {
  */
 export function renderNFLFilters() {
     return `
-        <div class="filters-container">
-            ${renderNFLPropTypeSelector()}
-            ${renderNFLSearch()}
-            ${renderNFLLineFilters()}
+        <!-- Today's Games -->
+        ${renderNFLTodaysGames()}
+        
+        <!-- Search & Game Filter -->
+        <div class="controls">
+            <input type="text" id="nfl-player-search" class="search-input" placeholder="Search players..." 
+                   oninput="window.nflProptrack.handleSearch(this.value)"
+                   style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); flex: 1; max-width: 300px;">
+            <select id="nfl-game-filter" onchange="window.nflProptrack.filterByGame(this.value)" 
+                    style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 250px;">
+                ${renderNFLGameFilter()}
+            </select>
         </div>
+        
+        <!-- Stat Selection -->
+        <div style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Select Prop Type:</label>
+            ${renderNFLPropTypeSelector()}
+        </div>
+        
+        <!-- Line Filter -->
+        ${renderNFLLineFilters()}
     `;
 }

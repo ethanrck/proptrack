@@ -28,13 +28,22 @@ export async function displayNFLPlayers() {
     
     if (players.length === 0) {
         container.innerHTML = `
-            <div class="loading">
+            <div class="loading" style="grid-column: 1 / -1;">
                 No ${propConfig?.label || 'props'} available for today's games.
                 <br><br>
                 <small>NFL games typically have props available on game days (Sunday, Monday, Thursday, Saturday).</small>
             </div>
         `;
         return;
+    }
+    
+    // Apply game filter
+    const gameFilter = nflState.currentGameFilter;
+    if (gameFilter !== 'all') {
+        const game = nflState.todaysGames.find(g => g.id === gameFilter);
+        if (game) {
+            players = players.filter(p => p.team === game.homeTeam || p.team === game.awayTeam);
+        }
     }
     
     // Apply line filter
@@ -59,14 +68,77 @@ export async function displayNFLPlayers() {
         );
     }
     
-    // Sort by hit rate or name
-    players.sort((a, b) => a.name.localeCompare(b.name));
+    // Calculate hit rates for sorting
+    const lineFilter = nflState.currentLineFilter;
+    players.forEach(player => {
+        const odds = player.odds;
+        let lineValue;
+        
+        if (propConfig?.isAnytime) {
+            lineValue = 0.5;
+        } else if (lineFilter !== 'all') {
+            lineValue = lineFilter;
+        } else if (Array.isArray(odds)) {
+            lineValue = odds[0]?.line;
+        } else {
+            lineValue = odds?.line;
+        }
+        
+        if (lineValue !== undefined) {
+            const hitRateData = nflState.calculateHitRate(player.id, propConfig.statKey, lineValue);
+            player.hitRate = hitRateData.rate;
+            player.hitRateTotal = hitRateData.total;
+        } else {
+            player.hitRate = 0;
+            player.hitRateTotal = 0;
+        }
+    });
+    
+    // Sort by hit rate (highest first), then by name for ties
+    players.sort((a, b) => {
+        // First sort by hit rate descending
+        if (b.hitRate !== a.hitRate) {
+            return b.hitRate - a.hitRate;
+        }
+        // Then by total games (more games = more reliable)
+        if (b.hitRateTotal !== a.hitRateTotal) {
+            return b.hitRateTotal - a.hitRateTotal;
+        }
+        // Then alphabetically
+        return a.name.localeCompare(b.name);
+    });
+    
+    if (players.length === 0) {
+        container.innerHTML = `
+            <div class="loading" style="grid-column: 1 / -1;">
+                No players match your filters.
+            </div>
+        `;
+        return;
+    }
     
     // Render player cards
     container.innerHTML = renderNFLPlayerCards(players, propType);
     
-    // Update hit rates asynchronously
-    updateAllNFLHitRates(players, propType, lineFilter);
+    // Update hit rates display (already calculated above)
+    players.forEach(player => {
+        const odds = player.odds;
+        let lineValue;
+        
+        if (propConfig?.isAnytime) {
+            lineValue = 0.5;
+        } else if (lineFilter !== 'all') {
+            lineValue = lineFilter;
+        } else if (Array.isArray(odds)) {
+            lineValue = odds[0]?.line;
+        } else {
+            lineValue = odds?.line;
+        }
+        
+        if (lineValue !== undefined) {
+            updateNFLHitRate(player.id, propType, lineValue);
+        }
+    });
 }
 
 /**

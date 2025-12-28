@@ -8,8 +8,10 @@ class NFLState {
         this.gameLogs = {};
         this.bettingOdds = {};
         this.todaysGames = [];
+        this.teamDefense = {};
         this.currentPropType = 'passing_yards';
         this.currentLineFilter = 'all';
+        this.currentGameFilter = 'all';
         this.isLoading = false;
         this.lastUpdated = null;
         this.watchlist = this.loadWatchlist();
@@ -32,12 +34,20 @@ class NFLState {
         this.todaysGames = games;
     }
 
+    setTeamDefense(defense) {
+        this.teamDefense = defense;
+    }
+
     setPropType(propType) {
         this.currentPropType = propType;
     }
 
     setLineFilter(filter) {
         this.currentLineFilter = filter;
+    }
+
+    setGameFilter(filter) {
+        this.currentGameFilter = filter;
     }
 
     setLoading(loading) {
