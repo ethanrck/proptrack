@@ -96,35 +96,7 @@ export function renderNFLLineFilters() {
 }
 
 /**
- * Render today's games section - same format as NHL
- */
-export function renderNFLTodaysGames() {
-    const games = nflState.todaysGames;
-    
-    if (!games || games.length === 0) {
-        return '';
-    }
-    
-    const gamesList = games.map(game => {
-        const time = game.startTime ? new Date(game.startTime).toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            hour12: true
-        }) : '';
-        
-        return `${game.awayTeam} @ ${game.homeTeam} - ${time}`;
-    }).join(' | ');
-    
-    return `
-        <div style="background: var(--card-bg); padding: 15px 20px; border-radius: 10px; margin-bottom: 20px;">
-            <strong style="color: var(--text-primary);">🏈 Today's Games:</strong>
-            <span style="color: var(--text-secondary); margin-left: 10px;">${gamesList}</span>
-        </div>
-    `;
-}
-
-/**
- * Render game filter dropdown
+ * Render game filter dropdown with times
  */
 export function renderNFLGameFilter() {
     const games = nflState.todaysGames;
@@ -133,9 +105,15 @@ export function renderNFLGameFilter() {
         return '<option value="">No games today</option>';
     }
     
-    const gameOptions = games.map(game => `
-        <option value="${game.id}">${game.awayTeam} @ ${game.homeTeam}</option>
-    `).join('');
+    const gameOptions = games.map(game => {
+        const time = game.startTime ? new Date(game.startTime).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        }) : '';
+        
+        return `<option value="${game.id}">${game.awayTeam} @ ${game.homeTeam} - ${time}</option>`;
+    }).join('');
     
     return `
         <option value="">All Games</option>
@@ -144,20 +122,17 @@ export function renderNFLGameFilter() {
 }
 
 /**
- * Render all filters
+ * Render all filters - NO Today's Games section at top
  */
 export function renderNFLFilters() {
     return `
-        <!-- Today's Games -->
-        ${renderNFLTodaysGames()}
-        
         <!-- Search & Game Filter -->
         <div class="controls">
             <input type="text" id="nfl-player-search" class="search-input" placeholder="Search players..." 
                    oninput="window.nflProptrack.handleSearch(this.value)"
                    style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); flex: 1; max-width: 300px;">
             <select id="nfl-game-filter" onchange="window.nflProptrack.filterByGame(this.value)" 
-                    style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 250px;">
+                    style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 300px;">
                 ${renderNFLGameFilter()}
             </select>
         </div>

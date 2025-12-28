@@ -3,7 +3,7 @@
 import { nflState } from './nfl-state.js';
 import { fetchNFLData } from './nfl-api-client.js';
 import { displayNFLPlayers, showNFLLoading, showNFLError, renderNFLHeader } from './components/nfl-display.js';
-import { showNFLGameLog, closeNFLModal } from './components/nfl-modal.js';
+import { showNFLGameLog, closeNFLModal, toggleNFLAvailableLines } from './components/nfl-modal.js';
 import { addToNFLWatchlist, removeFromNFLWatchlist, clearNFLWatchlist, renderNFLWatchlist } from './components/nfl-watchlist.js';
 
 /**
@@ -20,6 +20,7 @@ export async function initNFL() {
         filterByGame,
         showGameLog: showNFLGameLog,
         closeModal: closeNFLModal,
+        toggleAvailableLines: toggleNFLAvailableLines,
         addToWatchlist: addToNFLWatchlist,
         removeFromWatchlist: removeFromNFLWatchlist,
         clearWatchlist: clearNFLWatchlist,

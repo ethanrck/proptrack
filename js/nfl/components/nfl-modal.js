@@ -1,12 +1,12 @@
-// js/nfl/components/nfl-modal.js - NFL game log modal
+// js/nfl/components/nfl-modal.js - NFL game log modal (matching NHL style)
 
 import { nflState } from '../nfl-state.js';
 import { NFL_PROP_TYPES, NFL_HIT_RATE_GAMES } from '../nfl-constants.js';
 import { getPlayerGameInfo } from '../nfl-api-client.js';
-import { formatOdds } from '../../utils.js';
+import { formatOdds, escapeName, getHitRateColor, getOrdinal } from '../../utils.js';
 
 /**
- * Show game log modal for a player
+ * Show game log modal for a player - matching NHL modal exactly
  */
 export function showNFLGameLog(playerId) {
     const player = nflState.players.find(p => p.id === playerId || p.id === String(playerId));
@@ -19,308 +19,291 @@ export function showNFLGameLog(playerId) {
     const propType = nflState.currentPropType;
     const propConfig = NFL_PROP_TYPES[propType];
     const gameInfo = getPlayerGameInfo(playerId);
+    const escapedName = escapeName(player.name);
     
     // Get current line value from odds
     const playerOdds = player.odds || nflState.bettingOdds[player.name]?.[propType];
     let lineValue = propConfig?.isAnytime ? 0.5 : (playerOdds?.line ?? playerOdds?.[0]?.line ?? 0);
     
-    // Create modal
-    const modal = document.createElement('div');
-    modal.className = 'game-log-modal';
-    modal.id = 'nfl-game-log-modal';
-    modal.style.display = 'flex';
-    modal.onclick = (e) => {
-        if (e.target === modal) closeNFLModal();
-    };
+    // Filter to recent games (non-bye weeks)
+    const recentGames = gameLog.filter(g => !g.isByeWeek).slice(0, 10);
     
-    modal.innerHTML = `
-        <div class="modal-content">
-            <span class="close-modal" onclick="window.nflProptrack.closeModal()">&times;</span>
-            
-            <div class="modal-header" style="margin-bottom: 20px;">
-                <h2 style="margin: 0; color: var(--text-primary);">${player.name}</h2>
-                <p style="margin: 5px 0; color: var(--text-secondary);">${player.team} - ${player.position} | GP: ${player.gamesPlayed || 0}</p>
-                ${gameInfo ? `<p style="margin: 5px 0; color: var(--accent-color);">🏈 ${gameInfo.isHome ? 'vs' : '@'} ${gameInfo.opponent}</p>` : ''}
-            </div>
-            
-            ${renderNFLThisGame(player, propType, gameInfo)}
-            
-            ${renderNFLSeasonStats(player, propType, lineValue)}
-            
-            <div class="modal-section" style="margin-top: 20px;">
-                <h3 style="color: var(--text-primary); margin-bottom: 15px;">📊 Game Log (Last ${NFL_HIT_RATE_GAMES} Games)</h3>
-                ${renderNFLGameLogTable(gameLog, propType, lineValue)}
-            </div>
-            
-            ${renderNFLAvailableLines(player, propType)}
-        </div>
-    `;
+    // Calculate hit rate
+    let hits = 0;
+    let totalValue = 0;
+    const statKey = propConfig?.statKey;
     
-    document.body.appendChild(modal);
-    document.body.style.overflow = 'hidden';
-}
-
-/**
- * Render "This Game" section with opponent defensive info
- */
-function renderNFLThisGame(player, propType, gameInfo) {
-    if (!gameInfo) return '';
-    
-    const propConfig = NFL_PROP_TYPES[propType];
-    const opponent = gameInfo.opponent;
-    
-    // Get opponent defensive stats
-    const defenseStats = nflState.teamDefense?.[opponent];
-    
-    let defenseInfo = '';
-    let defenseValue = '';
-    let defenseRank = '';
-    let rankSuffix = '';
-    
-    if (defenseStats) {
-        if (propType === 'passing_yards' || propType === 'passing_tds') {
-            defenseValue = defenseStats.passYardsAllowed?.toFixed(1) || '0';
-            defenseRank = defenseStats.passYardsRank || 16;
-            defenseInfo = `${opponent} allows ${defenseValue} pass yds/gm`;
-        } else if (propType === 'rushing_yards') {
-            defenseValue = defenseStats.rushYardsAllowed?.toFixed(1) || '0';
-            defenseRank = defenseStats.rushYardsRank || 16;
-            defenseInfo = `${opponent} allows ${defenseValue} rush yds/gm`;
-        } else if (propType === 'receiving_yards' || propType === 'receptions') {
-            defenseValue = defenseStats.passYardsAllowed?.toFixed(1) || '0';
-            defenseRank = defenseStats.passYardsRank || 16;
-            defenseInfo = `${opponent} allows ${defenseValue} pass yds/gm`;
-        } else if (propType === 'anytime_td') {
-            defenseValue = defenseStats.pointsAllowed?.toFixed(1) || '0';
-            defenseRank = defenseStats.pointsRank || 16;
-            defenseInfo = `${opponent} allows ${defenseValue} pts/gm`;
-        }
-        
-        // Add rank suffix
-        if (defenseRank === 1) rankSuffix = 'st';
-        else if (defenseRank === 2) rankSuffix = 'nd';
-        else if (defenseRank === 3) rankSuffix = 'rd';
-        else rankSuffix = 'th';
-        
-        // Color based on rank (higher rank = worse defense = green for offense)
-        const rankColor = defenseRank >= 20 ? '#27ae60' : defenseRank >= 10 ? '#f39c12' : '#e74c3c';
-        
-        defenseInfo = `${defenseInfo} | <span style="color: ${rankColor}; font-weight: bold;">Rank: ${defenseRank}${rankSuffix}</span>`;
-    } else {
-        defenseInfo = `Playing ${opponent}`;
-    }
-    
-    return `
-        <div class="modal-section" style="background: var(--card-bg); padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-            <h3 style="color: var(--text-primary); margin: 0 0 10px 0;">🎯 This Game</h3>
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; text-align: center;">
-                <div>
-                    <div style="color: var(--text-secondary); font-size: 0.85em;">Matchup</div>
-                    <div style="color: var(--text-primary); font-weight: bold; font-size: 1.1em;">${gameInfo.isHome ? 'vs' : '@'} ${opponent}</div>
-                </div>
-                <div>
-                    <div style="color: var(--text-secondary); font-size: 0.85em;">Opponent Defense</div>
-                    <div style="color: var(--text-primary); font-size: 1em;">${defenseInfo}</div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Render season stats summary
- */
-function renderNFLSeasonStats(player, propType, lineValue) {
-    const propConfig = NFL_PROP_TYPES[propType];
-    if (!propConfig) return '';
-    
-    const gamesPlayed = player.gamesPlayed || 0;
-    
-    const stats = propConfig.stats.map(statConfig => {
-        const value = player.seasonStats?.[statConfig.key] || 0;
-        const displayValue = statConfig.perGame && gamesPlayed > 0 
-            ? (value / gamesPlayed).toFixed(1)
-            : typeof value === 'number' ? value.toFixed(1) : value;
-        return {
-            label: statConfig.label,
-            value: displayValue,
-            total: value
-        };
+    recentGames.forEach(game => {
+        const statValue = game.stats?.[statKey] || 0;
+        totalValue += statValue;
+        if (statValue > lineValue) hits++;
     });
     
-    // Get hit rate
-    const hitRateData = nflState.calculateHitRate(player.id, propConfig.statKey, lineValue);
+    const hitRate = recentGames.length > 0 ? ((hits / recentGames.length) * 100).toFixed(1) : 0;
+    const colorClass = getHitRateColor(parseFloat(hitRate));
     
-    let rateClass = 'hit-rate-poor';
-    if (hitRateData.rate >= 80) rateClass = 'hit-rate-excellent';
-    else if (hitRateData.rate >= 60) rateClass = 'hit-rate-good';
-    else if (hitRateData.rate >= 40) rateClass = 'hit-rate-medium';
+    // Get season stat total
+    const seasonStatLabel = `Season ${propConfig?.label || 'Total'}`;
+    const seasonStatValue = player.seasonStats?.[statKey] || 0;
     
-    return `
-        <div class="modal-section" style="background: var(--card-bg); padding: 15px; border-radius: 10px;">
-            <h3 style="color: var(--text-primary); margin: 0 0 15px 0;">📈 Season Stats</h3>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; text-align: center;">
-                <div>
-                    <div style="color: var(--text-secondary); font-size: 0.85em;">Hit Rate vs ${lineValue}</div>
-                    <div class="${rateClass}" style="font-weight: bold; font-size: 1.3em;">${hitRateData.rate.toFixed(1)}%</div>
-                </div>
-                <div>
-                    <div style="color: var(--text-secondary); font-size: 0.85em;">Record</div>
-                    <div style="color: var(--text-primary); font-weight: bold; font-size: 1.3em;">${hitRateData.hits}/${hitRateData.total}</div>
-                </div>
-                <div>
-                    <div style="color: var(--text-secondary); font-size: 0.85em;">${stats[0]?.label || 'Avg'}</div>
-                    <div style="color: var(--text-primary); font-weight: bold; font-size: 1.3em;">${stats[0]?.value || '-'}</div>
-                </div>
-                <div>
-                    <div style="color: var(--text-secondary); font-size: 0.85em;">Season Total</div>
-                    <div style="color: var(--text-primary); font-weight: bold; font-size: 1.3em;">${Math.round(stats[0]?.total) || '-'}</div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-/**
- * Render game log table
- */
-function renderNFLGameLogTable(gameLog, propType, lineValue) {
-    const propConfig = NFL_PROP_TYPES[propType];
-    if (!propConfig) return '<p style="color: var(--text-secondary);">No game log available</p>';
-    
-    const statKey = propConfig.statKey;
-    const recentGames = gameLog.slice(0, NFL_HIT_RATE_GAMES);
-    
-    if (recentGames.length === 0) {
-        return '<p style="color: var(--text-secondary);">No recent games available</p>';
-    }
-    
-    const rows = recentGames.map(game => {
-        if (game.isByeWeek) {
-            return `
-                <tr style="background: var(--card-bg);">
-                    <td style="padding: 10px; border-bottom: 1px solid var(--input-border);">Week ${game.week}</td>
-                    <td colspan="4" style="padding: 10px; border-bottom: 1px solid var(--input-border); text-align: center; color: var(--text-secondary); font-style: italic;">
-                        BYE WEEK
-                    </td>
-                </tr>
-            `;
-        }
-        
+    // Build game rows
+    const gameRows = recentGames.map(game => {
         const statValue = game.stats?.[statKey] || 0;
         const hit = statValue > lineValue;
-        const hitColor = hit ? '#27ae60' : '#e74c3c';
-        const hitBg = hit ? 'rgba(39, 174, 96, 0.1)' : 'rgba(231, 76, 60, 0.1)';
+        const rowClass = hit ? 'hit' : 'miss';
+        
+        const opponent = game.opponent || 'N/A';
+        const result = game.result || '-';
+        const week = game.week || '-';
+        
+        // Get opponent defense badge
+        let defBadge = '';
+        const oppDefense = nflState.teamDefense?.[opponent];
+        if (oppDefense) {
+            let defValue, defRank;
+            if (propType === 'passing_yards' || propType === 'passing_tds') {
+                defValue = oppDefense.passYardsAllowed?.toFixed(1);
+                defRank = oppDefense.passYardsRank;
+            } else if (propType === 'rushing_yards') {
+                defValue = oppDefense.rushYardsAllowed?.toFixed(1);
+                defRank = oppDefense.rushYardsRank;
+            } else if (propType === 'receiving_yards' || propType === 'receptions') {
+                defValue = oppDefense.passYardsAllowed?.toFixed(1);
+                defRank = oppDefense.passYardsRank;
+            }
+            
+            if (defValue && defRank) {
+                // Higher rank = worse defense = good for offense (green)
+                let badgeColor = defRank >= 20 ? '#27ae60' : (defRank >= 10 ? '#f39c12' : '#e74c3c');
+                defBadge = `<span style="background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; margin-left: 5px;">${defRank}${getOrdinal(defRank).replace(defRank, '')}</span>`;
+            }
+        }
         
         return `
-            <tr style="background: ${hitBg};">
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border);">Week ${game.week}</td>
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border);">${game.opponent || '-'}</td>
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border);">${game.result || '-'}</td>
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border); font-weight: bold; color: ${hitColor};">${statValue}</td>
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border); color: ${hitColor}; font-weight: bold;">${hit ? '✓ HIT' : '✗ MISS'}</td>
+            <tr class="${rowClass}">
+                <td>Wk ${week}</td>
+                <td>${opponent}${defBadge}</td>
+                <td>${result}</td>
+                <td class="${rowClass}">${statValue}</td>
+                <td class="${rowClass}">${hit ? '✓' : '✗'}</td>
             </tr>
         `;
     }).join('');
     
-    return `
-        <table style="width: 100%; border-collapse: collapse; color: var(--text-primary);">
+    // Build Available Lines section
+    let availableLinesSection = '';
+    const allLines = Array.isArray(playerOdds) ? playerOdds : (playerOdds ? [playerOdds] : []);
+    
+    if (allLines.length > 0 && !propConfig?.isAnytime) {
+        const linesWithHitRate = allLines.map(l => {
+            let lineHits = 0;
+            recentGames.forEach(g => {
+                const statValue = g.stats?.[statKey] || 0;
+                if (statValue > l.line) lineHits++;
+            });
+            const lineHitRate = recentGames.length > 0 ? ((lineHits / recentGames.length) * 100).toFixed(1) : 0;
+            return { ...l, hitRate: lineHitRate, hits: lineHits, total: recentGames.length };
+        });
+        
+        const tableRows = linesWithHitRate.map(l => {
+            const overOdds = l.overOdds != null ? formatOdds(l.overOdds) : null;
+            const underOdds = l.underOdds != null ? formatOdds(l.underOdds) : null;
+            const hrColorClass = getHitRateColor(parseFloat(l.hitRate));
+            const game = gameInfo ? `${gameInfo.isHome ? 'vs' : '@'} ${gameInfo.opponent}` : '';
+            const gameTime = gameInfo?.gameTime || '';
+            
+            let oddsHtml = '';
+            if (overOdds) {
+                oddsHtml += `<span onclick="event.stopPropagation(); window.nflProptrack.addToWatchlist(${player.id}, '${escapedName}', '${propType}', ${l.line}, ${l.overOdds}, '${game}', '${gameTime}', 'over')" 
+                    style="border: 2px solid #27ae60; color: #27ae60; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-weight: 600; font-size: 0.85em; margin-right: 6px;">
+                    O ${overOdds}
+                </span>`;
+            }
+            if (underOdds) {
+                oddsHtml += `<span onclick="event.stopPropagation(); window.nflProptrack.addToWatchlist(${player.id}, '${escapedName}', '${propType}', ${l.line}, ${l.underOdds}, '${game}', '${gameTime}', 'under')" 
+                    style="border: 2px solid #e74c3c; color: #e74c3c; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-weight: 600; font-size: 0.85em;">
+                    U ${underOdds}
+                </span>`;
+            }
+            
+            return `
+                <tr style="border-bottom: 1px solid var(--input-border);">
+                    <td style="padding: 12px; font-weight: bold; font-size: 1.2em; color: white;">${l.line}</td>
+                    <td style="padding: 12px;">${oddsHtml}</td>
+                    <td style="padding: 12px; font-weight: bold;" class="${hrColorClass}">${l.hitRate}%</td>
+                    <td style="padding: 12px; color: var(--text-secondary);">(${l.hits}/${l.total})</td>
+                </tr>
+            `;
+        }).join('');
+        
+        availableLinesSection = `
+            <div style="background: var(--container-bg); border: 1px solid var(--input-border); border-radius: 8px; margin: 15px 0; overflow: hidden;">
+                <div onclick="window.nflProptrack.toggleAvailableLines(this)" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; cursor: pointer; user-select: none;">
+                    <span style="font-weight: 600; color: white;">Available Lines (${allLines.length})</span>
+                    <span class="collapse-arrow" style="transition: transform 0.2s;">▼</span>
+                </div>
+                <div class="available-lines-content" style="display: none; border-top: 1px solid var(--input-border);">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--input-border); background: var(--card-bg);">
+                                <th style="padding: 10px 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Line</th>
+                                <th style="padding: 10px 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Odds</th>
+                                <th style="padding: 10px 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Hit Rate</th>
+                                <th style="padding: 10px 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Record</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Build This Game section with opponent defense info
+    let thisGameSection = '';
+    if (gameInfo) {
+        const opponent = gameInfo.opponent;
+        const oppDefense = nflState.teamDefense?.[opponent];
+        
+        let defenseInfo = '';
+        if (oppDefense) {
+            let defValue, defRank, defLabel;
+            if (propType === 'passing_yards' || propType === 'passing_tds') {
+                defValue = oppDefense.passYardsAllowed?.toFixed(1);
+                defRank = oppDefense.passYardsRank;
+                defLabel = 'pass yds/gm';
+            } else if (propType === 'rushing_yards') {
+                defValue = oppDefense.rushYardsAllowed?.toFixed(1);
+                defRank = oppDefense.rushYardsRank;
+                defLabel = 'rush yds/gm';
+            } else if (propType === 'receiving_yards' || propType === 'receptions') {
+                defValue = oppDefense.passYardsAllowed?.toFixed(1);
+                defRank = oppDefense.passYardsRank;
+                defLabel = 'pass yds/gm';
+            } else if (propType === 'anytime_td') {
+                defValue = oppDefense.pointsAllowed?.toFixed(1);
+                defRank = oppDefense.pointsRank;
+                defLabel = 'pts/gm';
+            }
+            
+            if (defValue && defRank) {
+                // Higher rank = worse defense = good for offense (green)
+                let badgeColor = defRank >= 20 ? '#27ae60' : (defRank >= 10 ? '#f39c12' : '#e74c3c');
+                const rankOrdinal = getOrdinal(defRank);
+                defenseInfo = `
+                    <div style="margin-top: 10px; text-align: center;">
+                        <span style="background: ${badgeColor}; color: white; padding: 4px 10px; border-radius: 5px; font-weight: 600;">
+                            🎯 ${opponent} allows ${defValue} ${defLabel} | ${rankOrdinal} most
+                        </span>
+                    </div>
+                `;
+            }
+        }
+        
+        const gameTime = gameInfo.gameTime ? new Date(gameInfo.gameTime).toLocaleString('en-US', {
+            weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+        }) : '';
+        
+        thisGameSection = `
+            <div style="background: var(--card-bg); border: 2px solid #e67e22; border-radius: 10px; padding: 15px; margin: 15px 0; text-align: center;">
+                <div style="color: #e67e22; font-weight: bold; font-size: 0.9em;">🏈 This Game</div>
+                <div style="font-size: 1.1em; font-weight: bold; margin: 8px 0; color: white;">${gameInfo.isHome ? 'vs' : '@'} ${opponent}</div>
+                ${gameTime ? `<div style="color: var(--text-secondary); font-size: 0.9em;">${gameTime}</div>` : ''}
+                ${defenseInfo}
+            </div>
+        `;
+    }
+    
+    // Badge legend
+    const badgeLegend = `
+        <div style="margin: 15px 0; padding: 12px 15px; background: var(--card-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 0.85em;">
+            <span style="font-weight: 600; color: white;">Opponent Defense Rank:</span>
+            <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 10px;">#20-32</span> 
+            <span style="color: var(--text-secondary);">Allows most (easier)</span>
+            <span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 10px;">#10-19</span> 
+            <span style="color: var(--text-secondary);">Medium</span>
+            <span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 10px;">#1-9</span> 
+            <span style="color: var(--text-secondary);">Allows least (harder)</span>
+        </div>
+    `;
+    
+    // Use the existing NHL modal structure
+    const modal = document.getElementById('gameLogModal');
+    const modalContent = document.getElementById('modalContent');
+    
+    if (!modal || !modalContent) {
+        console.error('Modal elements not found');
+        return;
+    }
+    
+    modalContent.innerHTML = `
+        <h2 style="color: white;">${player.name}</h2>
+        <p style="color: var(--text-secondary);">${player.team} - ${player.position} | GP: ${player.gamesPlayed || 0}</p>
+        
+        <div class="summary-stats">
+            <div class="summary-card">
+                <div class="summary-label">Hit Rate vs ${lineValue}</div>
+                <div class="summary-value ${colorClass}">${hitRate}%</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Hits</div>
+                <div class="summary-value">${hits}/${recentGames.length}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">${seasonStatLabel}</div>
+                <div class="summary-value">${Math.round(seasonStatValue)}</div>
+            </div>
+        </div>
+        
+        ${availableLinesSection}
+        
+        ${thisGameSection}
+        
+        <h3 style="color: white;">Last ${recentGames.length} Games</h3>
+        ${badgeLegend}
+        <table>
             <thead>
-                <tr style="background: var(--card-bg);">
-                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">Week</th>
-                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">Opponent</th>
-                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">Result</th>
-                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">${propConfig.label}</th>
-                    <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">vs ${lineValue}</th>
+                <tr>
+                    <th>Week</th>
+                    <th>Opponent</th>
+                    <th>Result</th>
+                    <th>${propConfig?.label || 'Stat'}</th>
+                    <th>vs ${lineValue}</th>
                 </tr>
             </thead>
             <tbody>
-                ${rows}
+                ${gameRows}
             </tbody>
         </table>
     `;
+    
+    modal.style.display = 'block';
 }
 
 /**
- * Render available betting lines
+ * Toggle available lines section
  */
-function renderNFLAvailableLines(player, propType) {
-    const propConfig = NFL_PROP_TYPES[propType];
-    if (propConfig?.isAnytime) {
-        // Show anytime TD odds
-        const odds = player.odds || nflState.bettingOdds[player.name]?.[propType];
-        if (!odds) return '';
-        
-        const price = odds.price || odds.odds;
-        if (!price) return '';
-        
-        return `
-            <div class="modal-section" style="margin-top: 20px;">
-                <h3 style="color: var(--text-primary); margin-bottom: 15px;">💰 Anytime TD Odds</h3>
-                <div style="background: var(--warning-bg); padding: 15px; border-radius: 8px; text-align: center;">
-                    <span style="color: #e67e22; font-weight: bold; font-size: 1.3em;">
-                        Anytime TD: ${formatOdds(price)}
-                    </span>
-                </div>
-            </div>
-        `;
+export function toggleNFLAvailableLines(element) {
+    const content = element.nextElementSibling;
+    const arrow = element.querySelector('.collapse-arrow');
+    
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        arrow.style.transform = 'rotate(180deg)';
+    } else {
+        content.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
     }
-    
-    const playerOdds = player.odds || nflState.bettingOdds[player.name]?.[propType];
-    if (!playerOdds) return '';
-    
-    const lines = Array.isArray(playerOdds) ? playerOdds : [playerOdds];
-    
-    if (lines.length === 0) return '';
-    
-    const rows = lines.map(lineData => {
-        const hitRateData = nflState.calculateHitRate(player.id, propConfig.statKey, lineData.line);
-        
-        let rateClass = '';
-        if (hitRateData.rate >= 80) rateClass = 'color: #27ae60;';
-        else if (hitRateData.rate >= 60) rateClass = 'color: #2ecc71;';
-        else if (hitRateData.rate >= 40) rateClass = 'color: #f39c12;';
-        else rateClass = 'color: #e74c3c;';
-        
-        return `
-            <tr>
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border); font-weight: bold;">${lineData.line}</td>
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border); color: #27ae60;">${lineData.overOdds ? formatOdds(lineData.overOdds) : '-'}</td>
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border); color: #e74c3c;">${lineData.underOdds ? formatOdds(lineData.underOdds) : '-'}</td>
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border); ${rateClass} font-weight: bold;">${hitRateData.rate.toFixed(1)}%</td>
-                <td style="padding: 10px; border-bottom: 1px solid var(--input-border);">${hitRateData.hits}/${hitRateData.total}</td>
-            </tr>
-        `;
-    }).join('');
-    
-    return `
-        <div class="modal-section" style="margin-top: 20px;">
-            <h3 style="color: var(--text-primary); margin-bottom: 15px;">💰 Available Lines</h3>
-            <table style="width: 100%; border-collapse: collapse; color: var(--text-primary);">
-                <thead>
-                    <tr style="background: var(--card-bg);">
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">Line</th>
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">Over</th>
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">Under</th>
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">Hit Rate</th>
-                        <th style="padding: 10px; text-align: left; border-bottom: 2px solid var(--input-border);">Record</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${rows}
-                </tbody>
-            </table>
-        </div>
-    `;
 }
 
 /**
- * Close the modal
+ * Close the modal - uses the shared NHL modal
  */
 export function closeNFLModal() {
-    const modal = document.getElementById('nfl-game-log-modal');
+    const modal = document.getElementById('gameLogModal');
     if (modal) {
-        modal.remove();
-        document.body.style.overflow = '';
+        modal.style.display = 'none';
     }
 }
