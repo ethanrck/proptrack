@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DangleData - NHL Player Line Tracker</title>
+    <title>DangleData - Sports Prop Analytics</title>
     <link rel="icon" href="favicon.png" type="image/png">
     <link rel="stylesheet" href="styles/main.css">
 </head>
@@ -12,60 +12,69 @@
         <!-- Header -->
         <div class="header-row">
             <h1>🏒 DangleData</h1>
-            <button class="dark-mode-toggle" onclick="window.proptrack.toggleDarkMode()">🌙 Dark Mode</button>
+            <div class="header-controls">
+                <button id="sport-toggle-btn" class="sport-toggle-btn" onclick="window.proptrack.switchSport()">🏈 NFL</button>
+                <button class="dark-mode-toggle" onclick="window.proptrack.toggleDarkMode()">🌙 Dark Mode</button>
+            </div>
         </div>
-        <p class="subtitle">NHL Player Prop Analytics & Betting Line Tracker</p>
+        <p class="subtitle">Sports Prop Analytics & Betting Line Tracker</p>
         
         <!-- API Status -->
         <div id="apiStatus" class="api-status">
             Loading data from cache...
         </div>
         
-        <!-- Search & Filters -->
-        <div class="controls">
-            <input type="text" id="searchPlayer" placeholder="Search players..." oninput="window.proptrack.filterPlayers()">
-            <select id="gameFilter" onchange="window.proptrack.filterPlayers()" style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 250px;">
-                <option value="">All Games</option>
-            </select>
-        </div>
-        
-        <!-- Checkboxes -->
-        <div class="controls">
-            <div class="control-group">
-                <input type="checkbox" id="hideNoLines" onchange="window.proptrack.filterPlayers()" checked>
-                <label for="hideNoLines">Hide players without betting lines</label>
+        <!-- Filters Container (for dynamic content) -->
+        <div id="filters-container">
+            <!-- Search & Filters -->
+            <div class="controls">
+                <input type="text" id="searchPlayer" placeholder="Search players..." oninput="window.proptrack.filterPlayers()">
+                <select id="gameFilter" onchange="window.proptrack.filterPlayers()" style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 250px;">
+                    <option value="">All Games</option>
+                </select>
             </div>
             
-            <div class="control-group">
-                <input type="checkbox" id="hideStartedGames" onchange="window.proptrack.filterPlayers()">
-                <label for="hideStartedGames">Hide games that have started</label>
+            <!-- Checkboxes -->
+            <div class="controls">
+                <div class="control-group">
+                    <input type="checkbox" id="hideNoLines" onchange="window.proptrack.filterPlayers()" checked>
+                    <label for="hideNoLines">Hide players without betting lines</label>
+                </div>
+                
+                <div class="control-group">
+                    <input type="checkbox" id="hideStartedGames" onchange="window.proptrack.filterPlayers()">
+                    <label for="hideStartedGames">Hide games that have started</label>
+                </div>
             </div>
-        </div>
-        
-        <!-- Stat Selection -->
-        <div style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Select Stat:</label>
-            <div class="stat-buttons">
-                <button class="stat-button active" onclick="window.proptrack.selectStat('points')">Points</button>
-                <button class="stat-button" onclick="window.proptrack.selectStat('goals')">Goals</button>
-                <button class="stat-button" onclick="window.proptrack.selectStat('assists')">Assists</button>
-                <button class="stat-button" onclick="window.proptrack.selectStat('shots')">Shots</button>
-                <button class="stat-button" onclick="window.proptrack.selectStat('saves')">Goalie Saves</button>
-                <button class="stat-button" onclick="window.proptrack.selectStat('team_totals')">Team Totals</button>
+            
+            <!-- Stat Selection -->
+            <div style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Select Stat:</label>
+                <div class="stat-buttons">
+                    <button class="stat-button active" onclick="window.proptrack.selectStat('points')">Points</button>
+                    <button class="stat-button" onclick="window.proptrack.selectStat('goals')">Goals</button>
+                    <button class="stat-button" onclick="window.proptrack.selectStat('assists')">Assists</button>
+                    <button class="stat-button" onclick="window.proptrack.selectStat('shots')">Shots</button>
+                    <button class="stat-button" onclick="window.proptrack.selectStat('saves')">Goalie Saves</button>
+                    <button class="stat-button" onclick="window.proptrack.selectStat('team_totals')">Team Totals</button>
+                </div>
             </div>
-        </div>
-        
-        <!-- Line Filter -->
-        <div id="lineFilterSection" style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px; display: none;">
-            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Filter by Line:</label>
-            <div class="line-filter-buttons" id="lineFilterButtons">
-                <!-- Populated dynamically -->
+            
+            <!-- Line Filter -->
+            <div id="lineFilterSection" style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px; display: none;">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Filter by Line:</label>
+                <div class="line-filter-buttons" id="lineFilterButtons">
+                    <!-- Populated dynamically -->
+                </div>
             </div>
         </div>
         
         <!-- Players Grid -->
         <div id="playersContainer" class="players-grid">
             <div class="loading">Loading all players from cache...</div>
+        </div>
+        <div id="player-grid" class="players-grid" style="display: none;">
+            <!-- NFL players will be rendered here -->
         </div>
         
         <!-- Watchlist -->
@@ -80,6 +89,11 @@
                 <div id="watchlistItems"></div>
                 <div id="parlayCalculator"></div>
             </div>
+        </div>
+        
+        <!-- NFL Watchlist (separate) -->
+        <div id="nfl-watchlist-container" class="watchlist-container" style="display: none;">
+            <!-- NFL watchlist rendered here -->
         </div>
     </div>
     

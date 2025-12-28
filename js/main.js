@@ -16,14 +16,99 @@ import {
 } from './components/filters.js';
 import { displayPlayers, displayTeams } from './components/display.js';
 
+// Current sport state
+let currentSport = 'nhl';
+
+/**
+ * Get saved sport from localStorage or default to NHL
+ */
+function getSavedSport() {
+    try {
+        return localStorage.getItem('dangledata-sport') || 'nhl';
+    } catch (e) {
+        return 'nhl';
+    }
+}
+
+/**
+ * Save current sport to localStorage
+ */
+function saveSport(sport) {
+    try {
+        localStorage.setItem('dangledata-sport', sport);
+    } catch (e) {
+        console.error('Failed to save sport preference:', e);
+    }
+}
+
+/**
+ * Update sport toggle button text
+ */
+function updateSportToggleButton() {
+    const btn = document.getElementById('sport-toggle-btn');
+    if (btn) {
+        if (currentSport === 'nhl') {
+            btn.innerHTML = '🏈 NFL';
+        } else {
+            btn.innerHTML = '🏒 NHL';
+        }
+    }
+}
+
+/**
+ * Switch between NHL and NFL
+ */
+async function switchSport() {
+    const newSport = currentSport === 'nhl' ? 'nfl' : 'nhl';
+    currentSport = newSport;
+    saveSport(newSport);
+    updateSportToggleButton();
+    
+    // Clear current display
+    const container = document.getElementById('playersContainer');
+    if (container) {
+        container.innerHTML = '<div class="loading">Loading...</div>';
+    }
+    
+    if (newSport === 'nfl') {
+        // Dynamically import and initialize NFL module
+        try {
+            const { initNFL, cleanupNFL } = await import('./nfl/nfl-main.js');
+            // Clean up NHL if needed
+            closeModal();
+            await initNFL();
+        } catch (error) {
+            console.error('Failed to load NFL module:', error);
+            if (container) {
+                container.innerHTML = `<div class="error">Failed to load NFL data: ${error.message}</div>`;
+            }
+        }
+    } else {
+        // Switch back to NHL
+        try {
+            const { cleanupNFL } = await import('./nfl/nfl-main.js');
+            cleanupNFL();
+        } catch (e) {
+            // NFL module might not be loaded yet
+        }
+        await loadCachedData();
+    }
+}
+
 /**
  * Initialize the application
  */
 async function init() {
     console.log(`${APP_CONFIG.name} v${APP_CONFIG.version} initializing...`);
     
+    // Get saved sport preference
+    currentSport = getSavedSport();
+    
     // Initialize theme
     theme.init();
+    
+    // Initialize sport toggle button
+    updateSportToggleButton();
     
     // Initialize watchlist
     watchlistUI.init();
@@ -34,14 +119,27 @@ async function init() {
     // Initialize filters
     initFilters();
     
-    // Load data
-    await loadCachedData();
+    // Load data based on current sport
+    if (currentSport === 'nfl') {
+        try {
+            const { initNFL } = await import('./nfl/nfl-main.js');
+            await initNFL();
+        } catch (error) {
+            console.error('Failed to load NFL module:', error);
+            // Fall back to NHL
+            currentSport = 'nhl';
+            updateSportToggleButton();
+            await loadCachedData();
+        }
+    } else {
+        await loadCachedData();
+    }
     
     console.log(`${APP_CONFIG.name} initialized successfully`);
 }
 
 /**
- * Load cached data from backend
+ * Load cached data from backend (NHL)
  */
 async function loadCachedData() {
     const container = document.getElementById('playersContainer');
@@ -104,6 +202,10 @@ async function loadCachedData() {
 window.proptrack = {
     // Theme
     toggleDarkMode: () => theme.toggle(),
+    
+    // Sport switching
+    switchSport,
+    getCurrentSport: () => currentSport,
     
     // Stat selection
     selectStat,
@@ -174,5 +276,6 @@ if (document.readyState === 'loading') {
 
 export default {
     init,
-    loadCachedData
+    loadCachedData,
+    switchSport
 };

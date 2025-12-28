@@ -100,6 +100,33 @@ h1 {
     transition: color 0.3s ease;
 }
 
+/* Header Controls */
+.header-controls {
+    display: flex;
+    gap: 10px;
+    position: absolute;
+    right: 0;
+}
+
+/* Sport Toggle Button */
+.sport-toggle-btn {
+    background: var(--button-bg);
+    color: var(--button-text);
+    border: 2px solid var(--button-text);
+    border-radius: 8px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 600;
+}
+
+.sport-toggle-btn:hover {
+    background: #e67e22;
+    color: white;
+    border-color: #e67e22;
+}
+
 /* Dark Mode Toggle */
 .dark-mode-toggle {
     background: var(--button-bg);
@@ -111,8 +138,6 @@ h1 {
     cursor: pointer;
     transition: all 0.3s;
     font-weight: 600;
-    position: absolute;
-    right: 0;
 }
 
 .dark-mode-toggle:hover {
@@ -322,14 +347,14 @@ h1 {
     padding: 8px 11px;
     border-radius: 6px;
     margin-left: auto;
-	height: 75px;
+    height: 75px;
 }
 
 .odds-box:hover {
     transform: scale(1.02);
 }
 
-/* Anytime Goal box */
+/* Anytime Goal/TD box - no fixed height, tight fit */
 .odds-box-anytime {
     display: flex;
     align-items: center;

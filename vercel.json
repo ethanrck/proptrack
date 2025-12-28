@@ -19,6 +19,22 @@
     {
       "path": "/api/update-data",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/nfl-update-data",
+      "schedule": "0 14 * * 0"
+    },
+    {
+      "path": "/api/nfl-update-data",
+      "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/api/nfl-update-data",
+      "schedule": "0 14 * * 4"
+    },
+    {
+      "path": "/api/nfl-update-data",
+      "schedule": "0 14 * * 6"
     }
   ]
 }
