@@ -88,6 +88,8 @@ async function switchSport() {
         try {
             const { initNFL } = await import('./nfl/nfl-main.js');
             await initNFL();
+            // Ensure modal handlers are active
+            initModal();
         } catch (error) {
             console.error('Failed to load NFL module:', error);
             if (playerGrid) {

@@ -23,7 +23,25 @@ export function showNFLGameLog(playerId) {
     
     // Get current line value from odds
     const playerOdds = player.odds || nflState.bettingOdds[player.name]?.[propType];
-    let lineValue = propConfig?.isAnytime ? 0.5 : (playerOdds?.line ?? playerOdds?.[0]?.line ?? 0);
+    let lineValue;
+    
+    if (propConfig?.isAnytime) {
+        lineValue = 0.5; // For anytime TD, need > 0.5 (at least 1)
+    } else if (playerOdds?.line != null) {
+        lineValue = playerOdds.line;
+    } else if (playerOdds?.[0]?.line != null) {
+        lineValue = playerOdds[0].line;
+    } else {
+        // Use prop type's default line when no odds available
+        const defaultLines = {
+            'passing_yards': 200,
+            'passing_tds': 1.5,
+            'rushing_yards': 50,
+            'receiving_yards': 50,
+            'receptions': 4.5
+        };
+        lineValue = defaultLines[propType] || 0;
+    }
     
     // Filter to recent games (non-bye weeks)
     const recentGames = gameLog.filter(g => !g.isByeWeek).slice(0, 10);
@@ -42,9 +60,70 @@ export function showNFLGameLog(playerId) {
     const hitRate = recentGames.length > 0 ? ((hits / recentGames.length) * 100).toFixed(1) : 0;
     const colorClass = getHitRateColor(parseFloat(hitRate));
     
-    // Get season stat total
-    const seasonStatLabel = `Season ${propConfig?.label || 'Total'}`;
+    // Calculate per-game averages
+    const gamesPlayed = player.gamesPlayed || recentGames.length || 1;
     const seasonStatValue = player.seasonStats?.[statKey] || 0;
+    const perGameAvg = gamesPlayed > 0 ? (seasonStatValue / gamesPlayed).toFixed(1) : 0;
+    
+    // Get TD-related stats for display
+    const passingTDs = player.seasonStats?.passingTouchdowns || 0;
+    const rushingTDs = player.seasonStats?.rushingTouchdowns || 0;
+    const receivingTDs = player.seasonStats?.receivingTouchdowns || 0;
+    const totalTDs = passingTDs + rushingTDs + receivingTDs;
+    const tdsPerGame = gamesPlayed > 0 ? (totalTDs / gamesPlayed).toFixed(1) : 0;
+    
+    // Build This Game section if player has a game today
+    let thisGameSection = '';
+    if (gameInfo) {
+        const opponent = gameInfo.opponent;
+        const oppDefense = nflState.teamDefense?.[opponent];
+        
+        let defenseInfo = '';
+        if (oppDefense) {
+            let defValue, defRank, defLabel;
+            if (propType === 'passing_yards' || propType === 'passing_tds') {
+                defValue = oppDefense.passYardsAllowed?.toFixed(1);
+                defRank = oppDefense.passYardsRank;
+                defLabel = 'pass yds/gm';
+            } else if (propType === 'rushing_yards') {
+                defValue = oppDefense.rushYardsAllowed?.toFixed(1);
+                defRank = oppDefense.rushYardsRank;
+                defLabel = 'rush yds/gm';
+            } else if (propType === 'receiving_yards' || propType === 'receptions') {
+                defValue = oppDefense.passYardsAllowed?.toFixed(1);
+                defRank = oppDefense.passYardsRank;
+                defLabel = 'pass yds/gm';
+            } else if (propType === 'anytime_td') {
+                defValue = oppDefense.pointsAllowed?.toFixed(1);
+                defRank = oppDefense.pointsRank;
+                defLabel = 'pts/gm';
+            }
+            
+            if (defValue && defRank) {
+                // Higher rank = worse defense = good for offense (green)
+                let badgeColor = defRank >= 20 ? '#27ae60' : (defRank >= 10 ? '#f39c12' : '#e74c3c');
+                const rankOrdinal = getOrdinal(defRank);
+                defenseInfo = `
+                    <span style="background: ${badgeColor}; color: white; padding: 4px 10px; border-radius: 5px; font-weight: 600;">
+                        🎯 ${opponent} allows ${defValue} ${defLabel} (${rankOrdinal} most)
+                    </span>
+                `;
+            }
+        }
+        
+        thisGameSection = `
+            <div style="background: var(--card-bg); border: 2px solid #e67e22; border-radius: 10px; padding: 15px; margin: 15px 0;">
+                <h4 style="margin: 0 0 10px 0; color: #e67e22;">📅 Today's Game</h4>
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <span style="font-size: 1.1em; font-weight: bold; color: white;">
+                        ${gameInfo.isHome ? 'vs' : '@'} ${opponent}
+                    </span>
+                    <span style="color: var(--text-secondary);">${gameInfo.gameTime || ''}</span>
+                    ${defenseInfo}
+                </div>
+            </div>
+        `;
+    }
     
     // Build game rows
     const gameRows = recentGames.map(game => {
@@ -52,30 +131,27 @@ export function showNFLGameLog(playerId) {
         const hit = statValue > lineValue;
         const rowClass = hit ? 'hit' : 'miss';
         
-        const opponent = game.opponent || 'N/A';
+        const opponent = game.opponent || '-';
         const result = game.result || '-';
         const week = game.week || '-';
         
         // Get opponent defense badge
         let defBadge = '';
         const oppDefense = nflState.teamDefense?.[opponent];
-        if (oppDefense) {
-            let defValue, defRank;
+        if (oppDefense && opponent !== '-') {
+            let defRank;
             if (propType === 'passing_yards' || propType === 'passing_tds') {
-                defValue = oppDefense.passYardsAllowed?.toFixed(1);
                 defRank = oppDefense.passYardsRank;
             } else if (propType === 'rushing_yards') {
-                defValue = oppDefense.rushYardsAllowed?.toFixed(1);
                 defRank = oppDefense.rushYardsRank;
             } else if (propType === 'receiving_yards' || propType === 'receptions') {
-                defValue = oppDefense.passYardsAllowed?.toFixed(1);
                 defRank = oppDefense.passYardsRank;
             }
             
-            if (defValue && defRank) {
+            if (defRank) {
                 // Higher rank = worse defense = good for offense (green)
                 let badgeColor = defRank >= 20 ? '#27ae60' : (defRank >= 10 ? '#f39c12' : '#e74c3c');
-                defBadge = `<span style="background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; margin-left: 5px;">${defRank}${getOrdinal(defRank).replace(defRank, '')}</span>`;
+                defBadge = `<span style="background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; margin-left: 5px;">#${defRank}</span>`;
             }
         }
         
@@ -161,61 +237,6 @@ export function showNFLGameLog(playerId) {
         `;
     }
     
-    // Build This Game section with opponent defense info
-    let thisGameSection = '';
-    if (gameInfo) {
-        const opponent = gameInfo.opponent;
-        const oppDefense = nflState.teamDefense?.[opponent];
-        
-        let defenseInfo = '';
-        if (oppDefense) {
-            let defValue, defRank, defLabel;
-            if (propType === 'passing_yards' || propType === 'passing_tds') {
-                defValue = oppDefense.passYardsAllowed?.toFixed(1);
-                defRank = oppDefense.passYardsRank;
-                defLabel = 'pass yds/gm';
-            } else if (propType === 'rushing_yards') {
-                defValue = oppDefense.rushYardsAllowed?.toFixed(1);
-                defRank = oppDefense.rushYardsRank;
-                defLabel = 'rush yds/gm';
-            } else if (propType === 'receiving_yards' || propType === 'receptions') {
-                defValue = oppDefense.passYardsAllowed?.toFixed(1);
-                defRank = oppDefense.passYardsRank;
-                defLabel = 'pass yds/gm';
-            } else if (propType === 'anytime_td') {
-                defValue = oppDefense.pointsAllowed?.toFixed(1);
-                defRank = oppDefense.pointsRank;
-                defLabel = 'pts/gm';
-            }
-            
-            if (defValue && defRank) {
-                // Higher rank = worse defense = good for offense (green)
-                let badgeColor = defRank >= 20 ? '#27ae60' : (defRank >= 10 ? '#f39c12' : '#e74c3c');
-                const rankOrdinal = getOrdinal(defRank);
-                defenseInfo = `
-                    <div style="margin-top: 10px; text-align: center;">
-                        <span style="background: ${badgeColor}; color: white; padding: 4px 10px; border-radius: 5px; font-weight: 600;">
-                            🎯 ${opponent} allows ${defValue} ${defLabel} | ${rankOrdinal} most
-                        </span>
-                    </div>
-                `;
-            }
-        }
-        
-        const gameTime = gameInfo.gameTime ? new Date(gameInfo.gameTime).toLocaleString('en-US', {
-            weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
-        }) : '';
-        
-        thisGameSection = `
-            <div style="background: var(--card-bg); border: 2px solid #e67e22; border-radius: 10px; padding: 15px; margin: 15px 0; text-align: center;">
-                <div style="color: #e67e22; font-weight: bold; font-size: 0.9em;">🏈 This Game</div>
-                <div style="font-size: 1.1em; font-weight: bold; margin: 8px 0; color: white;">${gameInfo.isHome ? 'vs' : '@'} ${opponent}</div>
-                ${gameTime ? `<div style="color: var(--text-secondary); font-size: 0.9em;">${gameTime}</div>` : ''}
-                ${defenseInfo}
-            </div>
-        `;
-    }
-    
     // Badge legend
     const badgeLegend = `
         <div style="margin: 15px 0; padding: 12px 15px; background: var(--card-bg); border: 1px solid var(--input-border); border-radius: 8px; font-size: 0.85em;">
@@ -240,7 +261,7 @@ export function showNFLGameLog(playerId) {
     
     modalContent.innerHTML = `
         <h2 style="color: white;">${player.name}</h2>
-        <p style="color: var(--text-secondary);">${player.team} - ${player.position} | GP: ${player.gamesPlayed || 0}</p>
+        <p style="color: var(--text-secondary);">${player.team} - ${player.position} | GP: ${gamesPlayed}</p>
         
         <div class="summary-stats">
             <div class="summary-card">
@@ -252,8 +273,12 @@ export function showNFLGameLog(playerId) {
                 <div class="summary-value">${hits}/${recentGames.length}</div>
             </div>
             <div class="summary-card">
-                <div class="summary-label">${seasonStatLabel}</div>
-                <div class="summary-value">${Math.round(seasonStatValue)}</div>
+                <div class="summary-label">${propConfig?.label || 'Stat'}/Game</div>
+                <div class="summary-value">${perGameAvg}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">TDs/Game</div>
+                <div class="summary-value">${tdsPerGame}</div>
             </div>
         </div>
         

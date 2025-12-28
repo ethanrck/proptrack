@@ -69,6 +69,16 @@ export async function displayNFLPlayers() {
     }
     
     // Calculate hit rates for sorting
+    // Default lines when no odds available
+    const defaultLines = {
+        'passing_yards': 200,
+        'passing_tds': 1.5,
+        'rushing_yards': 50,
+        'receiving_yards': 50,
+        'receptions': 4.5,
+        'anytime_td': 0.5
+    };
+    
     players.forEach(player => {
         const odds = player.odds;
         let lineValue;
@@ -77,20 +87,19 @@ export async function displayNFLPlayers() {
             lineValue = 0.5;
         } else if (lineFilter !== 'all') {
             lineValue = lineFilter;
-        } else if (Array.isArray(odds)) {
-            lineValue = odds[0]?.line;
+        } else if (Array.isArray(odds) && odds[0]?.line != null) {
+            lineValue = odds[0].line;
+        } else if (odds?.line != null) {
+            lineValue = odds.line;
         } else {
-            lineValue = odds?.line;
+            // Use default line for this prop type
+            lineValue = defaultLines[propType] || 0;
         }
         
-        if (lineValue !== undefined) {
-            const hitRateData = nflState.calculateHitRate(player.id, propConfig.statKey, lineValue);
-            player.hitRate = hitRateData.rate;
-            player.hitRateTotal = hitRateData.total;
-        } else {
-            player.hitRate = 0;
-            player.hitRateTotal = 0;
-        }
+        const hitRateData = nflState.calculateHitRate(player.id, propConfig.statKey, lineValue);
+        player.hitRate = hitRateData.rate;
+        player.hitRateTotal = hitRateData.total;
+        player.displayLine = lineValue; // Save for display
     });
     
     // Sort by hit rate (highest first), then by name for ties
@@ -119,24 +128,9 @@ export async function displayNFLPlayers() {
     // Render player cards
     container.innerHTML = renderNFLPlayerCards(players, propType);
     
-    // Update hit rates display (already calculated above)
+    // Update hit rates display using the displayLine calculated earlier
     players.forEach(player => {
-        const odds = player.odds;
-        let lineValue;
-        
-        if (propConfig?.isAnytime) {
-            lineValue = 0.5;
-        } else if (lineFilter !== 'all') {
-            lineValue = lineFilter;
-        } else if (Array.isArray(odds)) {
-            lineValue = odds[0]?.line;
-        } else {
-            lineValue = odds?.line;
-        }
-        
-        if (lineValue !== undefined) {
-            updateNFLHitRate(player.id, propType, lineValue);
-        }
+        updateNFLHitRate(player.id, propType, player.displayLine);
     });
 }
 

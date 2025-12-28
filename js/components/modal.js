@@ -743,7 +743,12 @@ export function closeModal() {
 /**
  * Initialize modal event listeners
  */
+let modalInitialized = false;
 export function initModal() {
+    // Only add event listeners once
+    if (modalInitialized) return;
+    modalInitialized = true;
+    
     // Close on overlay click
     window.addEventListener('click', (event) => {
         const modal = document.getElementById('gameLogModal');
@@ -755,7 +760,10 @@ export function initModal() {
     // Close on escape key
     window.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') {
-            closeModal();
+            const modal = document.getElementById('gameLogModal');
+            if (modal && modal.style.display !== 'none') {
+                closeModal();
+            }
         }
     });
 }

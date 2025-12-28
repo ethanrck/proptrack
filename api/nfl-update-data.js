@@ -272,11 +272,59 @@ async function fetchPlayersForTeams(teamAbbreviations) {
 }
 
 /**
- * Fetch game logs for players using multiple ESPN API approaches
+ * Fetch game logs for players using ESPN athlete statistics endpoint
  */
 async function fetchGameLogs(players) {
     const gameLogs = {};
     const currentYear = new Date().getFullYear();
+    
+    // First, build a map of team schedules to get opponent info
+    const teamSchedules = {};
+    const nflTeams = ['ARI', 'ATL', 'BAL', 'BUF', 'CAR', 'CHI', 'CIN', 'CLE', 'DAL', 'DEN', 
+                      'DET', 'GB', 'HOU', 'IND', 'JAX', 'KC', 'LV', 'LAC', 'LAR', 'MIA',
+                      'MIN', 'NE', 'NO', 'NYG', 'NYJ', 'PHI', 'PIT', 'SF', 'SEA', 'TB', 'TEN', 'WSH'];
+    
+    // Fetch schedules for all teams (we'll cache this)
+    console.log('Fetching team schedules for opponent data...');
+    try {
+        const scheduleUrl = `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${currentYear}&seasontype=2&limit=400`;
+        const scheduleResponse = await fetch(scheduleUrl);
+        if (scheduleResponse.ok) {
+            const scheduleData = await scheduleResponse.json();
+            scheduleData.events?.forEach(event => {
+                const competition = event.competitions?.[0];
+                const homeTeam = competition?.competitors?.find(c => c.homeAway === 'home');
+                const awayTeam = competition?.competitors?.find(c => c.homeAway === 'away');
+                const week = event.week?.number || 0;
+                
+                if (homeTeam && awayTeam && week > 0) {
+                    const homeAbbr = homeTeam.team?.abbreviation;
+                    const awayAbbr = awayTeam.team?.abbreviation;
+                    
+                    // Store for home team
+                    if (!teamSchedules[homeAbbr]) teamSchedules[homeAbbr] = {};
+                    teamSchedules[homeAbbr][week] = {
+                        opponent: awayAbbr,
+                        isHome: true,
+                        result: homeTeam.winner ? 'W' : (awayTeam.winner ? 'L' : '-'),
+                        score: `${homeTeam.score || 0}-${awayTeam.score || 0}`
+                    };
+                    
+                    // Store for away team
+                    if (!teamSchedules[awayAbbr]) teamSchedules[awayAbbr] = {};
+                    teamSchedules[awayAbbr][week] = {
+                        opponent: homeAbbr,
+                        isHome: false,
+                        result: awayTeam.winner ? 'W' : (homeTeam.winner ? 'L' : '-'),
+                        score: `${awayTeam.score || 0}-${homeTeam.score || 0}`
+                    };
+                }
+            });
+            console.log(`Built schedule data for ${Object.keys(teamSchedules).length} teams`);
+        }
+    } catch (e) {
+        console.log('Failed to fetch team schedules:', e.message);
+    }
     
     // Batch requests to avoid rate limiting
     const batchSize = 10;
@@ -303,10 +351,9 @@ async function fetchGameLogs(players) {
                     totalTouchdowns: 0
                 };
                 
-                // Try ESPN splits endpoint first (more reliable for game-by-game)
                 let data = null;
                 
-                // Approach 1: Try the splits endpoint
+                // Try the splits endpoint
                 try {
                     const splitsUrl = `https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${player.id}/splits?season=${currentYear}`;
                     const splitsResponse = await fetch(splitsUrl);
@@ -317,35 +364,25 @@ async function fetchGameLogs(players) {
                     console.log(`Splits endpoint failed for ${player.name}`);
                 }
                 
-                // Approach 2: Try the gamelog endpoint
+                // Try the gamelog endpoint as fallback
                 if (!data || !data.splitCategories) {
                     try {
                         const gamelogUrl = `https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${player.id}/gamelog?season=${currentYear}`;
                         const gamelogResponse = await fetch(gamelogUrl);
                         if (gamelogResponse.ok) {
-                            data = await gamelogResponse.json();
+                            const gamelogData = await gamelogResponse.json();
+                            if (gamelogData.seasonTypes || gamelogData.splitCategories) {
+                                data = gamelogData;
+                            }
                         }
                     } catch (e) {
                         console.log(`Gamelog endpoint failed for ${player.name}`);
                     }
                 }
                 
-                // Approach 3: Try the eventlog endpoint
-                if (!data) {
-                    try {
-                        const eventlogUrl = `https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${player.id}/eventlog?season=${currentYear}`;
-                        const eventlogResponse = await fetch(eventlogUrl);
-                        if (eventlogResponse.ok) {
-                            data = await eventlogResponse.json();
-                        }
-                    } catch (e) {
-                        console.log(`Eventlog endpoint failed for ${player.name}`);
-                    }
-                }
-                
                 if (data) {
-                    // Parse based on structure found
-                    parseESPNGameData(data, logs, seasonStats, player);
+                    // Parse the data
+                    parseESPNGameData(data, logs, seasonStats, player, teamSchedules);
                 }
                 
                 // Count non-bye week games
@@ -393,7 +430,31 @@ async function fetchGameLogs(players) {
 /**
  * Parse ESPN game data from various endpoint formats
  */
-function parseESPNGameData(data, logs, seasonStats, player) {
+function parseESPNGameData(data, logs, seasonStats, player, teamSchedules = {}) {
+    const playerTeam = player.team;
+    const teamSchedule = teamSchedules[playerTeam] || {};
+    
+    // Try statistics format (from v2 gamelog endpoint)
+    if (data.statistics) {
+        data.statistics.forEach(statCategory => {
+            const catName = (statCategory.name || '').toLowerCase();
+            const splits = statCategory.splits || [];
+            
+            splits.forEach(split => {
+                const splitName = (split.displayName || '').toLowerCase();
+                if (splitName.includes('game') || !splitName) {
+                    // This is per-game data
+                    const categories = split.categories || [];
+                    categories.forEach(cat => {
+                        cat.stats?.forEach(stat => {
+                            // Parse individual game stats
+                        });
+                    });
+                }
+            });
+        });
+    }
+    
     // Try splitCategories format (from splits endpoint)
     if (data.splitCategories) {
         const gameByGame = data.splitCategories.find(sc => 
@@ -402,17 +463,48 @@ function parseESPNGameData(data, logs, seasonStats, player) {
         );
         
         if (gameByGame && gameByGame.splits) {
+            const splitLabels = gameByGame.labels || data.labels || [];
+            
             gameByGame.splits.forEach((split, idx) => {
-                const opponent = split.displayName || split.abbreviation || '-';
-                const stats = parseStatsFromArray(split.stats, data.labels || gameByGame.labels);
+                const weekNum = idx + 1;
                 
+                // Get opponent from team schedule
+                const scheduleData = teamSchedule[weekNum] || {};
+                let opponent = scheduleData.opponent || '-';
+                let result = scheduleData.result || '-';
+                if (scheduleData.score && scheduleData.score !== '0-0') {
+                    result = `${scheduleData.result} ${scheduleData.score}`;
+                }
+                
+                // If no schedule data, try to parse from displayName
+                if (opponent === '-') {
+                    const displayName = split.displayName || split.abbreviation || '';
+                    if (displayName) {
+                        const match = displayName.match(/(?:@|vs\.?\s*)?([A-Z]{2,3})/i);
+                        if (match) {
+                            opponent = match[1].toUpperCase();
+                        }
+                    }
+                }
+                
+                const stats = parseStatsFromArray(split.stats, splitLabels);
                 const hasStats = Object.values(stats).some(v => v > 0);
                 
+                // Try to get result from stats array if still not found
+                if (result === '-') {
+                    const resultIdx = splitLabels.findIndex(l => 
+                        l?.toLowerCase() === 'result' || l?.toLowerCase() === 'w/l'
+                    );
+                    if (resultIdx >= 0 && split.stats[resultIdx]) {
+                        result = split.stats[resultIdx];
+                    }
+                }
+                
                 logs.push({
-                    week: idx + 1,
+                    week: weekNum,
                     opponent: opponent,
-                    result: '-',
-                    date: null,
+                    result: result,
+                    date: split.date || split.gameDate || null,
                     isByeWeek: !hasStats,
                     stats
                 });
@@ -445,13 +537,31 @@ function parseESPNGameData(data, logs, seasonStats, player) {
                     let logEntry = logs.find(l => l.week === week);
                     
                     if (!logEntry) {
-                        const opponent = event.opponent?.abbreviation || 
-                                       extractOpponent(event.atVs) ||
-                                       '-';
+                        // Get opponent from team schedule
+                        const scheduleData = teamSchedule[week] || {};
+                        let opponent = scheduleData.opponent || '-';
+                        let result = scheduleData.result || '-';
+                        if (scheduleData.score && scheduleData.score !== '0-0') {
+                            result = `${scheduleData.result} ${scheduleData.score}`;
+                        }
+                        
+                        // Try event data as fallback
+                        if (opponent === '-') {
+                            if (event.opponent?.abbreviation) {
+                                opponent = event.opponent.abbreviation;
+                            } else if (event.atVs) {
+                                opponent = extractOpponent(event.atVs) || '-';
+                            }
+                        }
+                        
+                        if (result === '-' && event.gameResult) {
+                            result = event.gameResult;
+                        }
+                        
                         logEntry = {
                             week,
                             opponent,
-                            result: event.gameResult || event.score || '-',
+                            result,
                             date: event.gameDate || event.date,
                             isByeWeek: false,
                             stats: {}
@@ -475,13 +585,29 @@ function parseESPNGameData(data, logs, seasonStats, player) {
     // Try events format (from eventlog endpoint)
     if (data.events && logs.length === 0) {
         data.events.forEach((event, idx) => {
+            const week = event.week || (idx + 1);
+            const scheduleData = teamSchedule[week] || {};
+            
             const stats = event.stats || {};
-            const opponent = event.opponent?.abbreviation || '-';
+            let opponent = scheduleData.opponent || '-';
+            let result = scheduleData.result || '-';
+            
+            if (opponent === '-') {
+                if (event.opponent?.abbreviation) {
+                    opponent = event.opponent.abbreviation;
+                } else if (event.vs) {
+                    opponent = event.vs;
+                }
+            }
+            
+            if (scheduleData.score && scheduleData.score !== '0-0') {
+                result = `${scheduleData.result} ${scheduleData.score}`;
+            }
             
             logs.push({
-                week: event.week || (idx + 1),
+                week,
                 opponent,
-                result: event.result || event.gameResult || '-',
+                result: event.result || event.gameResult || result,
                 date: event.date || event.gameDate,
                 isByeWeek: false,
                 stats
@@ -494,10 +620,21 @@ function parseESPNGameData(data, logs, seasonStats, player) {
     // Sort by week
     logs.sort((a, b) => a.week - b.week);
     
-    // Mark bye weeks
+    // Mark bye weeks and fill in missing opponent data from schedule
     logs.forEach(log => {
         const hasStats = log.stats && Object.values(log.stats).some(v => v > 0);
         log.isByeWeek = !hasStats;
+        
+        // If still missing opponent, try schedule one more time
+        if (log.opponent === '-' && teamSchedule[log.week]) {
+            log.opponent = teamSchedule[log.week].opponent || '-';
+            if (teamSchedule[log.week].result && log.result === '-') {
+                log.result = teamSchedule[log.week].result;
+                if (teamSchedule[log.week].score && teamSchedule[log.week].score !== '0-0') {
+                    log.result += ` ${teamSchedule[log.week].score}`;
+                }
+            }
+        }
     });
     
     // Accumulate stats from logs into seasonStats
