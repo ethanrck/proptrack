@@ -144,20 +144,16 @@ window.proptrack = {
     // Collapsible sections
     toggleAvailableLines: (headerElement) => {
         const content = headerElement.nextElementSibling;
-        const arrow = headerElement.querySelector('.toggle-arrow');
-        const subtitle = headerElement.querySelector('.collapsible-subtitle');
-        const columnHeaders = content?.querySelector('.collapsible-column-headers');
+        const arrow = headerElement.querySelector('.collapse-arrow');
         
-        if (content?.classList.contains('expanded')) {
-            content.classList.remove('expanded');
-            arrow?.classList.remove('expanded');
-            if (subtitle) subtitle.style.display = '';
-            if (columnHeaders) columnHeaders.style.display = 'none';
-        } else {
-            content?.classList.add('expanded');
-            arrow?.classList.add('expanded');
-            if (subtitle) subtitle.style.display = 'none';
-            if (columnHeaders) columnHeaders.style.display = 'block';
+        if (content) {
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+            } else {
+                content.style.display = 'none';
+                if (arrow) arrow.style.transform = 'rotate(0deg)';
+            }
         }
     },
     

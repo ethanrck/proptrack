@@ -121,21 +121,25 @@ export function showGameLog(playerId) {
         }
         
         if (oppTeamData) {
-            const rank = isGoalie ? oppTeamData.rank : oppTeamData.defensiveRank;
-            let badgeColor = '#27ae60';
+            const mascot = TEAM_MASCOTS[oppTeamData.teamFullName] || opponent;
             
             if (isGoalie) {
-                // For goalies: high rank = more shots = harder
-                if (rank <= 10) badgeColor = '#e74c3c';
-                else if (rank <= 22) badgeColor = '#f39c12';
-            } else {
-                // For skaters (shots): low defensive rank = gives up more shots = easier
-                if (rank <= 10) badgeColor = '#27ae60';
-                else if (rank <= 22) badgeColor = '#f39c12';
-                else badgeColor = '#e74c3c';
+                // For goalies: show opponent's shots taken (more shots = more save opportunities but harder)
+                const shotsFor = oppTeamData.shotsPerGame?.toFixed(1) || 'N/A';
+                const rank = oppTeamData.rank;
+                let badgeColor = '#27ae60'; // green = easy (low shots)
+                if (rank <= 10) badgeColor = '#e74c3c'; // red = hard (high shots)
+                else if (rank <= 22) badgeColor = '#f39c12'; // yellow = medium
+                rankBadge = `<span style="background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; font-weight: bold; margin-left: 5px;">${mascot} take ${shotsFor}/g</span>`;
+            } else if (statType === 'shots') {
+                // For skaters: show opponent's shots against (what they allow)
+                const shotsAgainst = oppTeamData.shotsAgainstPerGame?.toFixed(1) || 'N/A';
+                const rank = oppTeamData.defensiveRank;
+                let badgeColor = '#e74c3c'; // red = hard (low shots allowed)
+                if (rank <= 10) badgeColor = '#27ae60'; // green = easy (high shots allowed)
+                else if (rank <= 22) badgeColor = '#f39c12'; // yellow = medium
+                rankBadge = `<span style="background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; font-weight: bold; margin-left: 5px;">${mascot} allow ${shotsAgainst}/g</span>`;
             }
-            
-            rankBadge = `<span style="background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; font-weight: bold; margin-left: 5px;">#${rank}</span>`;
         }
         
         if (isGoalie) {
@@ -182,6 +186,132 @@ export function showGameLog(playerId) {
         }
     }
     
+    // Build Available Lines section
+    let availableLinesSection = '';
+    if (playerOdds?.[statType]?.length > 0) {
+        const allLines = playerOdds[statType];
+        const escapedName = escapeName(name);
+        
+        availableLinesSection = `
+            <div style="background: var(--container-bg); border: 1px solid var(--input-border); border-radius: 8px; margin: 15px 0; overflow: hidden;">
+                <div onclick="window.proptrack.toggleAvailableLines(this)" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; cursor: pointer; user-select: none;">
+                    <span style="font-weight: 600;">Available Lines (${allLines.length})</span>
+                    <span style="color: var(--text-secondary); font-size: 0.85em;">Click any pill to add to watchlist</span>
+                    <span class="collapse-arrow" style="transition: transform 0.2s;">▼</span>
+                </div>
+                <div class="available-lines-content" style="display: none; padding: 15px; border-top: 1px solid var(--input-border);">
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        ${allLines.map(l => {
+                            const overOdds = l.overOdds != null ? formatOdds(l.overOdds) : null;
+                            const underOdds = l.underOdds != null ? formatOdds(l.underOdds) : null;
+                            const game = l.game || 'N/A';
+                            const gameTime = l.gameTime || '';
+                            const isAnytime = l.type === 'anytime_scorer';
+                            
+                            if (isAnytime) {
+                                return `<span onclick="window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${l.line}, ${l.overOdds || l.underOdds}, '${game}', '${gameTime}')" 
+                                    style="background: #e67e22; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 0.9em;">
+                                    Anytime ${formatOdds(l.overOdds || l.underOdds)}
+                                </span>`;
+                            }
+                            
+                            let html = '';
+                            if (overOdds) {
+                                html += `<span onclick="window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${l.line}, ${l.overOdds}, '${game}', '${gameTime}', 'over')" 
+                                    style="background: #27ae60; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 0.9em;">
+                                    O${l.line} ${overOdds}
+                                </span>`;
+                            }
+                            if (underOdds) {
+                                html += `<span onclick="window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${l.line}, ${l.underOdds}, '${game}', '${gameTime}', 'under')" 
+                                    style="background: #e74c3c; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 0.9em;">
+                                    U${l.line} ${underOdds}
+                                </span>`;
+                            }
+                            return html;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Build This Game section with shot volume info
+    let thisGameSection = '';
+    if (playerOdds?.[statType]?.length > 0) {
+        const lineObj = getMainLine(playerOdds[statType]);
+        if (lineObj && lineObj.game) {
+            const gameTime = lineObj.gameTime ? new Date(lineObj.gameTime).toLocaleString('en-US', {
+                weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+            }) : '';
+            const bookmaker = lineObj.bookmaker || 'Unknown';
+            
+            // Get opponent shot volume info
+            let shotVolumeInfo = '';
+            if (nextOpponent && (statType === 'shots' || isGoalie)) {
+                const oppStats = teamShotData.find(t => 
+                    t.teamFullName === nextOpponent.name ||
+                    nextOpponent.name.includes(t.teamFullName?.split(' ').pop() || '') ||
+                    t.teamFullName?.includes(nextOpponent.name.split(' ').pop())
+                );
+                
+                if (oppStats) {
+                    if (statType === 'shots') {
+                        const shotsAgainst = oppStats.shotsAgainstPerGame?.toFixed(1) || 'N/A';
+                        const rank = oppStats.defensiveRank || 'N/A';
+                        const rankOrdinal = getOrdinal(rank);
+                        let badgeColor = rank <= 10 ? '#27ae60' : (rank <= 22 ? '#f39c12' : '#e74c3c');
+                        shotVolumeInfo = `
+                            <div style="margin-top: 10px; text-align: center;">
+                                <span style="background: ${badgeColor}; color: white; padding: 4px 10px; border-radius: 5px; font-weight: 600;">
+                                    🎯 ${TEAM_MASCOTS[nextOpponent.name] || nextOpponent.name.split(' ').pop()} allow ${shotsAgainst} shots/game | ${rankOrdinal} most
+                                </span>
+                            </div>
+                        `;
+                    } else if (isGoalie) {
+                        const shotsFor = oppStats.shotsPerGame?.toFixed(1) || 'N/A';
+                        const rank = oppStats.rank || 'N/A';
+                        const rankOrdinal = getOrdinal(rank);
+                        let badgeColor = rank <= 10 ? '#e74c3c' : (rank <= 22 ? '#f39c12' : '#27ae60');
+                        shotVolumeInfo = `
+                            <div style="margin-top: 10px; text-align: center;">
+                                <span style="background: ${badgeColor}; color: white; padding: 4px 10px; border-radius: 5px; font-weight: 600;">
+                                    🎯 ${TEAM_MASCOTS[nextOpponent.name] || nextOpponent.name.split(' ').pop()} take ${shotsFor} shots/game | ${rankOrdinal} most
+                                </span>
+                            </div>
+                        `;
+                    }
+                }
+            }
+            
+            thisGameSection = `
+                <div style="background: var(--card-bg); border: 2px solid var(--card-hover-border); border-radius: 10px; padding: 15px; margin: 15px 0; text-align: center;">
+                    <div style="color: #e67e22; font-weight: bold; font-size: 0.9em;">🏒 This Game</div>
+                    <div style="font-size: 1.1em; font-weight: bold; margin: 8px 0; color: white;">${lineObj.game}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.9em;">${gameTime}</div>
+                    <div style="color: var(--text-secondary); font-size: 0.85em;">Odds from ${bookmaker}</div>
+                    ${shotVolumeInfo}
+                </div>
+            `;
+        }
+    }
+    
+    // Badge color legend for shots/saves
+    let badgeLegend = '';
+    if (statType === 'shots' || isGoalie) {
+        badgeLegend = `
+            <div style="margin: 10px 0; padding: 8px; background: var(--container-bg); border-radius: 6px; font-size: 0.85em;">
+                <span style="font-weight: 600;">Badge Colors:</span>
+                <span style="background: #27ae60; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">#1-10</span> 
+                <span style="color: var(--text-secondary);">${isGoalie ? 'Fewest shots (harder)' : 'Allow most shots (easier)'}</span>
+                <span style="background: #f39c12; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">#11-22</span> 
+                <span style="color: var(--text-secondary);">Medium</span>
+                <span style="background: #e74c3c; color: white; padding: 2px 6px; border-radius: 3px; margin-left: 8px;">#23-32</span> 
+                <span style="color: var(--text-secondary);">${isGoalie ? 'Most shots (easier)' : 'Allow fewest shots (harder)'}</span>
+            </div>
+        `;
+    }
+    
     // Build modal content
     const modal = document.getElementById('gameLogModal');
     const modalContent = document.getElementById('modalContent');
@@ -209,15 +339,14 @@ export function showGameLog(playerId) {
             </div>
         </div>
         
-        ${nextOpponent ? `
-            <div style="background: var(--warning-bg); padding: 10px; border-radius: 8px; margin: 15px 0; text-align: center;">
-                <span style="color: var(--warning-text);">🏒 Next Opponent: <strong>${nextOpponent.name}</strong></span>
-            </div>
-        ` : ''}
+        ${availableLinesSection}
+        
+        ${thisGameSection}
         
         ${h2hSection}
         
         <h3 style="color: white;">Last ${games.length} Games</h3>
+        ${badgeLegend}
         <table>
             <thead>
                 <tr>
@@ -434,6 +563,16 @@ export async function showTeamLog(teamName, game) {
     if (teamOdds?.team_totals) allLines.push(...teamOdds.team_totals);
     if (teamOdds?.alternate_team_totals) allLines.push(...teamOdds.alternate_team_totals);
     
+    // Get line value for hit/miss calculation
+    const selectedLine = state.selectedLineFilter;
+    let lineValue = 2.5; // default
+    if (selectedLine) {
+        lineValue = parseFloat(selectedLine);
+    } else if (allLines.length > 0) {
+        const mainLine = getMainLine(allLines);
+        if (mainLine) lineValue = mainLine.line;
+    }
+    
     // Get opponent info from game string
     const teams = game.split(' vs ');
     const opponentFull = teams.find(t => !t.includes(teamName.split(' ').pop()));
@@ -443,7 +582,8 @@ export async function showTeamLog(teamName, game) {
         opponentFull.includes(t.abbrev)
     ) : null;
     
-    // Build game rows
+    // Build game rows with hit/miss coloring
+    let hits = 0;
     const gameRows = games.map(g => {
         const isHome = g.homeTeam.abbrev === teamAbbrev;
         const teamScore = isHome ? g.homeTeam.score : g.awayTeam.score;
@@ -451,9 +591,11 @@ export async function showTeamLog(teamName, game) {
         const oppAbbrev = isHome ? g.awayTeam.abbrev : g.homeTeam.abbrev;
         const result = teamScore > oppScore ? 'W' : (teamScore < oppScore ? 'L' : 'T');
         const gameDate = parseLocalDate(g.gameDate).toLocaleDateString();
+        const hit = teamScore > lineValue;
+        if (hit) hits++;
         
         return `
-            <tr>
+            <tr class="${hit ? 'hit' : 'miss'}">
                 <td>${gameDate}</td>
                 <td>${isHome ? 'vs' : '@'} ${oppAbbrev}</td>
                 <td>${teamScore}</td>
@@ -462,12 +604,24 @@ export async function showTeamLog(teamName, game) {
         `;
     }).join('');
     
+    // Calculate hit rate
+    const hitRate = games.length > 0 ? ((hits / games.length) * 100).toFixed(1) : 0;
+    const hitRateColorClass = getHitRateColor(parseFloat(hitRate));
+    
     // Render modal
     modalContent.innerHTML = `
         <h2 style="color: white;">${teamName}</h2>
         <p style="color: var(--text-secondary);">vs ${opponentFull || 'Unknown'}</p>
         
         <div class="summary-stats">
+            <div class="summary-card">
+                <div class="summary-label">Current Line</div>
+                <div class="summary-value" style="color: #e67e22;">${lineValue}</div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-label">Hit Rate (Last ${games.length})</div>
+                <div class="summary-value ${hitRateColorClass}">${hitRate}%</div>
+            </div>
             <div class="summary-card">
                 <div class="summary-label">Season Avg Goals/Game</div>
                 <div class="summary-value">${teamStats.goalsPerGame.toFixed(1)}</div>
@@ -480,7 +634,7 @@ export async function showTeamLog(teamName, game) {
             ` : ''}
         </div>
         
-        <h3 style="color: white;">Last ${games.length} Games</h3>
+        <h3 style="color: white;">Last ${games.length} Games vs ${lineValue}</h3>
         <table>
             <thead>
                 <tr>

@@ -16,6 +16,7 @@ export function renderPlayerCard(player, selectedLine) {
     const isGoalie = state.isGoalieMode;
     const statType = state.currentStatType;
     const bettingOdds = state.bettingOdds;
+    const teamShotData = state.teamShotData;
     
     const name = isGoalie 
         ? (player.goalieFullName || 'Unknown Goalie')
@@ -48,6 +49,7 @@ export function renderPlayerCard(player, selectedLine) {
     const playerOdds = bettingOdds[name];
     const hasLine = playerOdds && Array.isArray(playerOdds[statType]) && playerOdds[statType].length > 0;
     let oddsDisplay = '';
+    let shotVolumeInfo = '';
     
     if (hasLine) {
         let oddsInfo;
@@ -66,6 +68,53 @@ export function renderPlayerCard(player, selectedLine) {
             const game = oddsInfo.game || 'N/A';
             const gameTime = oddsInfo.gameTime || '';
             const escapedName = escapeName(name);
+            
+            // Get opponent info for shot volume badges
+            if ((statType === 'shots' || isGoalie) && game && game !== 'N/A') {
+                const gameTeams = game.split(' vs ');
+                let opponentName = null;
+                
+                for (const gameTeam of gameTeams) {
+                    const teamNorm = gameTeam.toLowerCase().replace(/[^a-z]/g, '');
+                    const playerTeamNorm = (player.teamAbbrevs || '').toLowerCase().replace(/[^a-z]/g, '');
+                    if (!teamNorm.includes(playerTeamNorm) && !playerTeamNorm.includes(teamNorm.slice(0, 3))) {
+                        opponentName = gameTeam;
+                        break;
+                    }
+                }
+                
+                if (opponentName) {
+                    const oppStats = teamShotData.find(t => 
+                        t.teamFullName === opponentName ||
+                        opponentName.includes(t.teamFullName.split(' ').pop()) ||
+                        t.teamFullName.includes(opponentName.split(' ').pop())
+                    );
+                    
+                    if (oppStats) {
+                        if (statType === 'shots') {
+                            // For shots: show opponent's shots against (what they allow)
+                            const shotsAgainst = oppStats.shotsAgainstPerGame?.toFixed(1) || 'N/A';
+                            const rank = oppStats.defensiveRank || 'N/A';
+                            let badgeColor = rank <= 10 ? '#27ae60' : (rank <= 22 ? '#f39c12' : '#e74c3c');
+                            shotVolumeInfo = `
+                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-top: 5px; text-align: center;">
+                                    🎯 <span style="background: ${badgeColor}; color: white; padding: 1px 4px; border-radius: 3px;">${oppStats.teamFullName?.split(' ').pop() || 'Opp'} allow ${shotsAgainst}/g</span>
+                                </div>
+                            `;
+                        } else if (isGoalie) {
+                            // For goalies: show opponent's shots per game (what they take)
+                            const shotsFor = oppStats.shotsPerGame?.toFixed(1) || 'N/A';
+                            const rank = oppStats.rank || 'N/A';
+                            let badgeColor = rank <= 10 ? '#e74c3c' : (rank <= 22 ? '#f39c12' : '#27ae60');
+                            shotVolumeInfo = `
+                                <div style="font-size: 0.75em; color: var(--text-secondary); margin-top: 5px; text-align: center;">
+                                    🎯 <span style="background: ${badgeColor}; color: white; padding: 1px 4px; border-radius: 3px;">${oppStats.teamFullName?.split(' ').pop() || 'Opp'} take ${shotsFor}/g</span>
+                                </div>
+                            `;
+                        }
+                    }
+                }
+            }
             
             if (statType === 'goals' && oddsInfo.type === 'anytime_scorer') {
                 const formattedOdds = formatOdds(price);
@@ -102,13 +151,14 @@ export function renderPlayerCard(player, selectedLine) {
     
     return `
         <div class="player-card" onclick="window.proptrack.showGameLog(${player.playerId})">
-            <div class="player-header">
+            <div class="player-header" style="align-items: center;">
                 <div style="flex: 1;">
                     <div class="player-name">${name}</div>
                     <div class="player-team" style="margin-top: 2px; margin-bottom: 0;">${team} - ${position} | GP: ${gamesPlayed}</div>
                 </div>
                 ${oddsDisplay}
             </div>
+            ${shotVolumeInfo}
             <div class="player-stats" style="margin-top: 10px;">
                 <div class="stat">
                     <div class="stat-label">${stat1Label}</div>
