@@ -64,35 +64,112 @@ async function switchSport() {
     saveSport(newSport);
     updateSportToggleButton();
     
+    // Close any open modals
+    closeModal();
+    
     // Clear current display
     const container = document.getElementById('playersContainer');
-    if (container) {
-        container.innerHTML = '<div class="loading">Loading...</div>';
-    }
+    const playerGrid = document.getElementById('player-grid');
+    const filtersContainer = document.getElementById('filters-container');
+    const nhlWatchlist = document.getElementById('watchlistContainer');
+    const nflWatchlist = document.getElementById('nfl-watchlist-container');
     
     if (newSport === 'nfl') {
+        // Hide NHL elements, show NFL elements
+        if (container) container.style.display = 'none';
+        if (playerGrid) {
+            playerGrid.style.display = 'grid';
+            playerGrid.innerHTML = '<div class="loading">Loading NFL data...</div>';
+        }
+        if (nhlWatchlist) nhlWatchlist.style.display = 'none';
+        if (nflWatchlist) nflWatchlist.style.display = 'block';
+        
         // Dynamically import and initialize NFL module
         try {
-            const { initNFL, cleanupNFL } = await import('./nfl/nfl-main.js');
-            // Clean up NHL if needed
-            closeModal();
+            const { initNFL } = await import('./nfl/nfl-main.js');
             await initNFL();
         } catch (error) {
             console.error('Failed to load NFL module:', error);
-            if (container) {
-                container.innerHTML = `<div class="error">Failed to load NFL data: ${error.message}</div>`;
+            if (playerGrid) {
+                playerGrid.innerHTML = `<div class="error">Failed to load NFL data: ${error.message}</div>`;
             }
         }
     } else {
-        // Switch back to NHL
+        // Hide NFL elements, show NHL elements
+        if (playerGrid) playerGrid.style.display = 'none';
+        if (container) {
+            container.style.display = 'grid';
+            container.innerHTML = '<div class="loading">Loading NHL data...</div>';
+        }
+        if (nflWatchlist) nflWatchlist.style.display = 'none';
+        if (nhlWatchlist) nhlWatchlist.style.display = 'block';
+        
+        // Restore NHL filters
+        if (filtersContainer) {
+            filtersContainer.innerHTML = getNHLFiltersHTML();
+        }
+        
+        // Clean up NFL
         try {
             const { cleanupNFL } = await import('./nfl/nfl-main.js');
             cleanupNFL();
         } catch (e) {
             // NFL module might not be loaded yet
         }
+        
+        // Re-initialize NHL filters and load data
+        initFilters();
         await loadCachedData();
     }
+}
+
+/**
+ * Get NHL filters HTML
+ */
+function getNHLFiltersHTML() {
+    return `
+        <!-- Search & Filters -->
+        <div class="controls">
+            <input type="text" id="searchPlayer" placeholder="Search players..." oninput="window.proptrack.filterPlayers()">
+            <select id="gameFilter" onchange="window.proptrack.filterPlayers()" style="padding: 10px; font-size: 16px; border: 2px solid var(--input-border); border-radius: 8px; background: var(--container-bg); color: var(--text-primary); min-width: 250px;">
+                <option value="">All Games</option>
+            </select>
+        </div>
+        
+        <!-- Checkboxes -->
+        <div class="controls">
+            <div class="control-group">
+                <input type="checkbox" id="hideNoLines" onchange="window.proptrack.filterPlayers()" checked>
+                <label for="hideNoLines">Hide players without betting lines</label>
+            </div>
+            
+            <div class="control-group">
+                <input type="checkbox" id="hideStartedGames" onchange="window.proptrack.filterPlayers()">
+                <label for="hideStartedGames">Hide games that have started</label>
+            </div>
+        </div>
+        
+        <!-- Stat Selection -->
+        <div style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Select Stat:</label>
+            <div class="stat-buttons">
+                <button class="stat-button active" onclick="window.proptrack.selectStat('points')">Points</button>
+                <button class="stat-button" onclick="window.proptrack.selectStat('goals')">Goals</button>
+                <button class="stat-button" onclick="window.proptrack.selectStat('assists')">Assists</button>
+                <button class="stat-button" onclick="window.proptrack.selectStat('shots')">Shots</button>
+                <button class="stat-button" onclick="window.proptrack.selectStat('saves')">Goalie Saves</button>
+                <button class="stat-button" onclick="window.proptrack.selectStat('team_totals')">Team Totals</button>
+            </div>
+        </div>
+        
+        <!-- Line Filter -->
+        <div id="lineFilterSection" style="background: var(--card-bg); padding: 20px; border-radius: 10px; margin-bottom: 20px; display: none;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 600; color: var(--text-primary);">Filter by Line:</label>
+            <div class="line-filter-buttons" id="lineFilterButtons">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+    `;
 }
 
 /**
@@ -110,17 +187,20 @@ async function init() {
     // Initialize sport toggle button
     updateSportToggleButton();
     
-    // Initialize watchlist
-    watchlistUI.init();
-    
-    // Initialize modal
-    initModal();
-    
-    // Initialize filters
-    initFilters();
+    // Get containers
+    const nhlContainer = document.getElementById('playersContainer');
+    const nflContainer = document.getElementById('player-grid');
+    const nhlWatchlist = document.getElementById('watchlistContainer');
+    const nflWatchlist = document.getElementById('nfl-watchlist-container');
     
     // Load data based on current sport
     if (currentSport === 'nfl') {
+        // Hide NHL, show NFL containers
+        if (nhlContainer) nhlContainer.style.display = 'none';
+        if (nflContainer) nflContainer.style.display = 'grid';
+        if (nhlWatchlist) nhlWatchlist.style.display = 'none';
+        if (nflWatchlist) nflWatchlist.style.display = 'block';
+        
         try {
             const { initNFL } = await import('./nfl/nfl-main.js');
             await initNFL();
@@ -128,10 +208,30 @@ async function init() {
             console.error('Failed to load NFL module:', error);
             // Fall back to NHL
             currentSport = 'nhl';
+            saveSport('nhl');
             updateSportToggleButton();
+            
+            if (nhlContainer) nhlContainer.style.display = 'grid';
+            if (nflContainer) nflContainer.style.display = 'none';
+            if (nhlWatchlist) nhlWatchlist.style.display = 'block';
+            if (nflWatchlist) nflWatchlist.style.display = 'none';
+            
+            watchlistUI.init();
+            initModal();
+            initFilters();
             await loadCachedData();
         }
     } else {
+        // Show NHL, hide NFL containers
+        if (nhlContainer) nhlContainer.style.display = 'grid';
+        if (nflContainer) nflContainer.style.display = 'none';
+        if (nhlWatchlist) nhlWatchlist.style.display = 'block';
+        if (nflWatchlist) nflWatchlist.style.display = 'none';
+        
+        // Initialize NHL components
+        watchlistUI.init();
+        initModal();
+        initFilters();
         await loadCachedData();
     }
     
