@@ -16,9 +16,16 @@ const NFL_ODDS_MARKETS = [
 ];
 
 export default async function handler(request, response) {
-    // Verify cron secret for security
+    // Verify cron secret for security (accept header or query param)
     const authHeader = request.headers['authorization'] || request.headers['Authorization'];
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const querySecret = request.query?.secret;
+    const cronSecret = process.env.CRON_SECRET;
+    
+    const isAuthorized = 
+        authHeader === `Bearer ${cronSecret}` || 
+        querySecret === cronSecret;
+    
+    if (!isAuthorized) {
         return response.status(401).send('Unauthorized');
     }
 

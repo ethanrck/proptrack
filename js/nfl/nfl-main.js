@@ -28,14 +28,36 @@ export async function initNFL() {
     // Show loading state
     showNFLLoading();
     
+    // Update status bar
+    const statusDiv = document.getElementById('apiStatus');
+    if (statusDiv) {
+        statusDiv.innerHTML = 'Loading NFL data...';
+        statusDiv.style.background = 'var(--warning-bg)';
+        statusDiv.style.color = 'var(--warning-text)';
+    }
+    
     try {
         // Fetch data
         await fetchNFLData();
         
-        // Update header
-        const headerInfo = document.getElementById('header-info');
-        if (headerInfo) {
-            headerInfo.innerHTML = renderNFLHeader();
+        // Update status bar with NFL info
+        if (statusDiv) {
+            const playerCount = nflState.players.length;
+            const gamesCount = nflState.todaysGames.length;
+            const oddsCount = Object.keys(nflState.bettingOdds).length;
+            const lastUpdated = nflState.lastUpdated 
+                ? new Date(nflState.lastUpdated).toLocaleString()
+                : 'Never';
+            
+            if (playerCount > 0 || gamesCount > 0) {
+                statusDiv.innerHTML = `✅ NFL: ${playerCount} players | ${gamesCount} games today | ${oddsCount} betting lines | Last updated: ${lastUpdated}`;
+                statusDiv.style.background = 'var(--success-bg)';
+                statusDiv.style.color = 'var(--success-text)';
+            } else {
+                statusDiv.innerHTML = `⚠️ NFL: No games today | Last updated: ${lastUpdated}`;
+                statusDiv.style.background = 'var(--warning-bg)';
+                statusDiv.style.color = 'var(--warning-text)';
+            }
         }
         
         // Render watchlist
@@ -47,6 +69,13 @@ export async function initNFL() {
         console.log('NFL module initialized successfully');
     } catch (error) {
         console.error('Failed to initialize NFL:', error);
+        
+        if (statusDiv) {
+            statusDiv.innerHTML = `❌ NFL Error: ${error.message}`;
+            statusDiv.style.background = 'var(--error-bg)';
+            statusDiv.style.color = 'var(--error-text)';
+        }
+        
         showNFLError(error.message);
     }
 }
