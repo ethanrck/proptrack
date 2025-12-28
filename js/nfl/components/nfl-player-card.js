@@ -46,7 +46,7 @@ export function renderNFLPlayerCard(player, propType) {
             `;
         }
     } else {
-        // O/U display
+        // O/U display - matching NHL styling exactly
         const line = odds?.line ?? odds?.[0]?.line;
         const overOdds = odds?.overOdds ?? odds?.[0]?.overOdds;
         const underOdds = odds?.underOdds ?? odds?.[0]?.underOdds;
@@ -54,18 +54,18 @@ export function renderNFLPlayerCard(player, propType) {
         if (line !== undefined) {
             oddsDisplay = `
                 <div class="odds-box">
-                    <div class="odds-line-value">${line}</div>
+                    <div style="font-weight: bold; font-size: 1.45em; color: #e67e22; pointer-events: none;">${line}</div>
                     ${overOdds != null ? `
-                        <div class="odds-over" 
-                             onclick="event.stopPropagation(); window.nflProptrack.addToWatchlist(${id}, '${escapedName}', '${propType}', ${line}, ${overOdds}, '${game}', '${gameTime}', 'over')"
+                        <div onclick="event.stopPropagation(); window.nflProptrack.addToWatchlist(${id}, '${escapedName}', '${propType}', ${line}, ${overOdds}, '${game}', '${gameTime}', 'over')" 
+                             style="color: #27ae60; font-size: 1.05em; cursor: pointer; padding: 1px 6px; border-radius: 3px; transition: all 0.2s;" 
                              onmouseover="this.style.background='#27ae60'; this.style.color='white';" 
                              onmouseout="this.style.background=''; this.style.color='#27ae60';">
                             O ${formatOdds(overOdds)}
                         </div>
                     ` : ''}
                     ${underOdds != null ? `
-                        <div class="odds-under"
-                             onclick="event.stopPropagation(); window.nflProptrack.addToWatchlist(${id}, '${escapedName}', '${propType}', ${line}, ${underOdds}, '${game}', '${gameTime}', 'under')"
+                        <div onclick="event.stopPropagation(); window.nflProptrack.addToWatchlist(${id}, '${escapedName}', '${propType}', ${line}, ${underOdds}, '${game}', '${gameTime}', 'under')" 
+                             style="color: #e74c3c; font-size: 1.05em; cursor: pointer; padding: 1px 6px; border-radius: 3px; transition: all 0.2s;" 
                              onmouseover="this.style.background='#e74c3c'; this.style.color='white';" 
                              onmouseout="this.style.background=''; this.style.color='#e74c3c';">
                             U ${formatOdds(underOdds)}

@@ -272,7 +272,7 @@ async function fetchPlayersForTeams(teamAbbreviations) {
 }
 
 /**
- * Fetch game logs for players
+ * Fetch game logs for players using multiple ESPN API approaches
  */
 async function fetchGameLogs(players) {
     const gameLogs = {};
@@ -285,10 +285,6 @@ async function fetchGameLogs(players) {
         
         await Promise.all(batch.map(async (player) => {
             try {
-                const url = `https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${player.id}/gamelog?season=${currentYear}`;
-                const response = await fetch(url);
-                const data = await response.json();
-                
                 const logs = [];
                 let totalGames = 0;
                 const seasonStats = {
@@ -307,63 +303,53 @@ async function fetchGameLogs(players) {
                     totalTouchdowns: 0
                 };
                 
-                // Parse game log entries - ESPN structure varies
-                const categories = data.seasonTypes?.[0]?.categories || [];
-                let entries = [];
+                // Try ESPN splits endpoint first (more reliable for game-by-game)
+                let data = null;
                 
-                // Try to get events from different possible locations
-                for (const cat of categories) {
-                    if (cat.events && cat.events.length > 0) {
-                        entries = cat.events;
-                        break;
+                // Approach 1: Try the splits endpoint
+                try {
+                    const splitsUrl = `https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${player.id}/splits?season=${currentYear}`;
+                    const splitsResponse = await fetch(splitsUrl);
+                    if (splitsResponse.ok) {
+                        data = await splitsResponse.json();
+                    }
+                } catch (e) {
+                    console.log(`Splits endpoint failed for ${player.name}`);
+                }
+                
+                // Approach 2: Try the gamelog endpoint
+                if (!data || !data.splitCategories) {
+                    try {
+                        const gamelogUrl = `https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${player.id}/gamelog?season=${currentYear}`;
+                        const gamelogResponse = await fetch(gamelogUrl);
+                        if (gamelogResponse.ok) {
+                            data = await gamelogResponse.json();
+                        }
+                    } catch (e) {
+                        console.log(`Gamelog endpoint failed for ${player.name}`);
                     }
                 }
                 
-                // Also check for direct events array
-                if (entries.length === 0 && data.events) {
-                    entries = data.events;
+                // Approach 3: Try the eventlog endpoint
+                if (!data) {
+                    try {
+                        const eventlogUrl = `https://site.web.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${player.id}/eventlog?season=${currentYear}`;
+                        const eventlogResponse = await fetch(eventlogUrl);
+                        if (eventlogResponse.ok) {
+                            data = await eventlogResponse.json();
+                        }
+                    } catch (e) {
+                        console.log(`Eventlog endpoint failed for ${player.name}`);
+                    }
                 }
                 
-                entries.forEach((entry, index) => {
-                    const stats = parseGameStats(entry.stats, data.labels);
-                    
-                    // Check if bye week (no stats)
-                    const isByeWeek = !stats || Object.values(stats).every(v => v === 0);
-                    
-                    // Try multiple ways to get week number
-                    const weekNum = entry.week || entry.eventWeek || (index + 1);
-                    
-                    // Try multiple ways to get opponent
-                    const opponent = entry.opponent?.abbreviation || 
-                                   entry.atVs?.split(' ')[1] ||
-                                   entry.opponentAbbreviation ||
-                                   '-';
-                    
-                    // Try to get result
-                    const result = entry.gameResult || 
-                                  entry.score ||
-                                  (entry.homeScore !== undefined ? 
-                                      `${entry.homeScore}-${entry.awayScore}` : '-');
-                    
-                    logs.push({
-                        week: weekNum,
-                        opponent: opponent,
-                        result: result,
-                        date: entry.gameDate || entry.date,
-                        isByeWeek,
-                        stats
-                    });
-                    
-                    if (!isByeWeek) {
-                        totalGames++;
-                        // Accumulate season stats
-                        Object.keys(stats).forEach(key => {
-                            if (seasonStats[key] !== undefined) {
-                                seasonStats[key] += stats[key] || 0;
-                            }
-                        });
-                    }
-                });
+                if (data) {
+                    // Parse based on structure found
+                    parseESPNGameData(data, logs, seasonStats, player);
+                }
+                
+                // Count non-bye week games
+                totalGames = logs.filter(l => !l.isByeWeek).length;
                 
                 // Calculate total TDs
                 seasonStats.totalTouchdowns = 
@@ -405,87 +391,232 @@ async function fetchGameLogs(players) {
 }
 
 /**
- * Parse game stats from ESPN format
+ * Parse ESPN game data from various endpoint formats
  */
-function parseGameStats(statsArray, labels) {
-    if (!statsArray || !Array.isArray(statsArray)) return {};
-    
-    const stats = {};
-    
-    // If we have labels, use them for more accurate mapping
-    if (labels && Array.isArray(labels)) {
-        statsArray.forEach((value, index) => {
-            const label = labels[index]?.toLowerCase() || '';
-            const numValue = parseFloat(value) || 0;
-            
-            if (label.includes('c/att') || label === 'cmp') {
-                // Passing completions/attempts - might be combined like "20/30"
-                if (typeof value === 'string' && value.includes('/')) {
-                    const [comp, att] = value.split('/');
-                    stats.completions = parseInt(comp) || 0;
-                    stats.passingAttempts = parseInt(att) || 0;
-                } else {
-                    stats.completions = numValue;
-                }
-            } else if (label.includes('pass') && label.includes('yd')) {
-                stats.passingYards = numValue;
-            } else if (label === 'yds' && index < 5) {
-                // First YDS is likely passing yards
-                stats.passingYards = numValue;
-            } else if (label.includes('pass') && label.includes('td')) {
-                stats.passingTouchdowns = numValue;
-            } else if (label === 'td' && index < 5) {
-                stats.passingTouchdowns = numValue;
-            } else if (label.includes('int')) {
-                stats.interceptions = numValue;
-            } else if (label.includes('rush') && label.includes('yd')) {
-                stats.rushingYards = numValue;
-            } else if (label.includes('rush') && label.includes('td')) {
-                stats.rushingTouchdowns = numValue;
-            } else if (label.includes('car') || label.includes('rush') && label.includes('att')) {
-                stats.rushingAttempts = numValue;
-            } else if (label.includes('rec') && !label.includes('yd') && !label.includes('td')) {
-                stats.receptions = numValue;
-            } else if (label.includes('rec') && label.includes('yd')) {
-                stats.receivingYards = numValue;
-            } else if (label.includes('rec') && label.includes('td')) {
-                stats.receivingTouchdowns = numValue;
-            } else if (label.includes('tgt') || label.includes('target')) {
-                stats.targets = numValue;
-            }
-        });
-    } else {
-        // Fallback to index-based mapping
-        const statMapping = {
-            0: 'completions',
-            1: 'passingAttempts', 
-            3: 'passingYards',
-            4: 'passingTouchdowns',
-            5: 'interceptions',
-            13: 'rushingAttempts',
-            14: 'rushingYards',
-            15: 'rushingTouchdowns',
-            20: 'receptions',
-            21: 'targets',
-            22: 'receivingYards',
-            23: 'receivingTouchdowns'
-        };
+function parseESPNGameData(data, logs, seasonStats, player) {
+    // Try splitCategories format (from splits endpoint)
+    if (data.splitCategories) {
+        const gameByGame = data.splitCategories.find(sc => 
+            sc.name?.toLowerCase() === 'game-by-game' || 
+            sc.displayName?.toLowerCase().includes('game')
+        );
         
-        statsArray.forEach((value, index) => {
-            const statName = statMapping[index];
-            if (statName) {
-                stats[statName] = parseFloat(value) || 0;
+        if (gameByGame && gameByGame.splits) {
+            gameByGame.splits.forEach((split, idx) => {
+                const opponent = split.displayName || split.abbreviation || '-';
+                const stats = parseStatsFromArray(split.stats, data.labels || gameByGame.labels);
+                
+                const hasStats = Object.values(stats).some(v => v > 0);
+                
+                logs.push({
+                    week: idx + 1,
+                    opponent: opponent,
+                    result: '-',
+                    date: null,
+                    isByeWeek: !hasStats,
+                    stats
+                });
+                
+                if (hasStats) {
+                    accumulateStats(seasonStats, stats);
+                }
+            });
+        }
+    }
+    
+    // Try seasonTypes format (from gamelog endpoint)
+    if (data.seasonTypes && logs.length === 0) {
+        const regularSeason = data.seasonTypes.find(st => 
+            st.displayName === 'Regular Season' || st.categories
+        ) || data.seasonTypes[0];
+        
+        if (regularSeason?.categories) {
+            const categories = regularSeason.categories;
+            
+            // Process each category
+            for (const category of categories) {
+                const catName = (category.name || category.displayName || '').toLowerCase();
+                const events = category.events || [];
+                const catLabels = category.labels || [];
+                
+                events.forEach((event, idx) => {
+                    // Find or create log entry for this week
+                    const week = event.week || (idx + 1);
+                    let logEntry = logs.find(l => l.week === week);
+                    
+                    if (!logEntry) {
+                        const opponent = event.opponent?.abbreviation || 
+                                       extractOpponent(event.atVs) ||
+                                       '-';
+                        logEntry = {
+                            week,
+                            opponent,
+                            result: event.gameResult || event.score || '-',
+                            date: event.gameDate || event.date,
+                            isByeWeek: false,
+                            stats: {}
+                        };
+                        logs.push(logEntry);
+                    }
+                    
+                    // Parse stats based on category
+                    const eventStats = event.stats || [];
+                    catLabels.forEach((label, labelIdx) => {
+                        const value = parseFloat(eventStats[labelIdx]) || 0;
+                        const lbl = (label || '').toString().toLowerCase();
+                        
+                        assignStatByLabel(logEntry.stats, lbl, value, catName, player.position);
+                    });
+                });
             }
+        }
+    }
+    
+    // Try events format (from eventlog endpoint)
+    if (data.events && logs.length === 0) {
+        data.events.forEach((event, idx) => {
+            const stats = event.stats || {};
+            const opponent = event.opponent?.abbreviation || '-';
+            
+            logs.push({
+                week: event.week || (idx + 1),
+                opponent,
+                result: event.result || event.gameResult || '-',
+                date: event.date || event.gameDate,
+                isByeWeek: false,
+                stats
+            });
+            
+            accumulateStats(seasonStats, stats);
         });
     }
     
-    // Calculate total TDs for this game
-    stats.totalTouchdowns = 
-        (stats.passingTouchdowns || 0) + 
-        (stats.rushingTouchdowns || 0) + 
-        (stats.receivingTouchdowns || 0);
+    // Sort by week
+    logs.sort((a, b) => a.week - b.week);
+    
+    // Mark bye weeks
+    logs.forEach(log => {
+        const hasStats = log.stats && Object.values(log.stats).some(v => v > 0);
+        log.isByeWeek = !hasStats;
+    });
+    
+    // Accumulate stats from logs into seasonStats
+    if (logs.length > 0 && Object.values(seasonStats).every(v => v === 0)) {
+        logs.forEach(log => {
+            if (!log.isByeWeek) {
+                accumulateStats(seasonStats, log.stats);
+            }
+        });
+    }
+}
+
+/**
+ * Parse stats from array using labels
+ */
+function parseStatsFromArray(statsArray, labels) {
+    const stats = {};
+    if (!statsArray || !Array.isArray(statsArray)) return stats;
+    
+    labels = labels || [];
+    
+    statsArray.forEach((value, idx) => {
+        const label = (labels[idx] || '').toString().toLowerCase();
+        const numValue = parseFloat(value) || 0;
+        
+        // Handle C/ATT format
+        if (label === 'c/att' || label === 'cmp/att') {
+            const parts = String(value).split('/');
+            stats.completions = parseInt(parts[0]) || 0;
+            stats.passingAttempts = parseInt(parts[1]) || 0;
+        } else if (label === 'yds' || label === 'pass yds') {
+            if (!stats.passingYards) stats.passingYards = numValue;
+        } else if (label === 'td' || label === 'pass td') {
+            if (!stats.passingTouchdowns) stats.passingTouchdowns = numValue;
+        } else if (label === 'int') {
+            stats.interceptions = numValue;
+        } else if (label === 'car' || label === 'rush') {
+            stats.rushingAttempts = numValue;
+        } else if (label === 'rush yds') {
+            stats.rushingYards = numValue;
+        } else if (label === 'rush td') {
+            stats.rushingTouchdowns = numValue;
+        } else if (label === 'rec') {
+            stats.receptions = numValue;
+        } else if (label === 'rec yds') {
+            stats.receivingYards = numValue;
+        } else if (label === 'rec td') {
+            stats.receivingTouchdowns = numValue;
+        } else if (label === 'tgt' || label === 'tgts') {
+            stats.targets = numValue;
+        }
+    });
     
     return stats;
+}
+
+/**
+ * Assign stat value based on label and category context
+ */
+function assignStatByLabel(stats, label, value, catName, position) {
+    if (label === 'c/att' || label === 'cmp/att') {
+        // Already handled
+        return;
+    }
+    
+    const isPassing = catName.includes('pass');
+    const isRushing = catName.includes('rush');
+    const isReceiving = catName.includes('rec');
+    
+    if (label === 'yds') {
+        if (isPassing) stats.passingYards = value;
+        else if (isRushing) stats.rushingYards = value;
+        else if (isReceiving) stats.receivingYards = value;
+        else {
+            // Guess based on position
+            if (position === 'QB') stats.passingYards = value;
+            else if (position === 'RB') stats.rushingYards = value;
+            else stats.receivingYards = value;
+        }
+    } else if (label === 'td') {
+        if (isPassing) stats.passingTouchdowns = value;
+        else if (isRushing) stats.rushingTouchdowns = value;
+        else if (isReceiving) stats.receivingTouchdowns = value;
+        else {
+            if (position === 'QB') stats.passingTouchdowns = value;
+            else if (position === 'RB') stats.rushingTouchdowns = value;
+            else stats.receivingTouchdowns = value;
+        }
+    } else if (label === 'int') {
+        stats.interceptions = value;
+    } else if (label === 'car' || label === 'att' && isRushing) {
+        stats.rushingAttempts = value;
+    } else if (label === 'rec') {
+        stats.receptions = value;
+    } else if (label === 'tgt' || label === 'tgts') {
+        stats.targets = value;
+    }
+}
+
+/**
+ * Extract opponent from atVs string like "@ NYG" or "vs DAL"
+ */
+function extractOpponent(atVs) {
+    if (!atVs) return null;
+    const match = atVs.match(/(?:vs|@)\s*(\w+)/i);
+    return match ? match[1] : null;
+}
+
+/**
+ * Accumulate stats into season totals
+ */
+function accumulateStats(seasonStats, gameStats) {
+    if (!gameStats) return;
+    
+    Object.keys(seasonStats).forEach(key => {
+        if (gameStats[key] !== undefined) {
+            seasonStats[key] += gameStats[key] || 0;
+        }
+    });
 }
 
 /**

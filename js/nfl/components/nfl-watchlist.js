@@ -22,6 +22,13 @@ export function addToNFLWatchlist(playerId, playerName, propType, line, odds, ga
     
     nflState.addToWatchlist(item);
     showNFLWatchlistNotification(`Added ${playerName} to watchlist`);
+    
+    // Remove empty class when adding
+    const container = document.getElementById('nfl-watchlist-container');
+    if (container) {
+        container.classList.remove('empty');
+    }
+    
     renderNFLWatchlist();
 }
 
@@ -44,7 +51,7 @@ export function clearNFLWatchlist() {
 }
 
 /**
- * Render NFL watchlist
+ * Render NFL watchlist - matches NHL styling
  */
 export function renderNFLWatchlist() {
     const container = document.getElementById('nfl-watchlist-container');
@@ -52,66 +59,98 @@ export function renderNFLWatchlist() {
     
     const watchlist = nflState.watchlist;
     
+    // Toggle empty class - this is key for the NHL-style collapse
+    if (watchlist.length === 0) {
+        container.classList.add('empty');
+    } else {
+        container.classList.remove('empty');
+    }
+    
+    // Build watchlist items HTML
+    let itemsHTML = '';
+    if (watchlist.length > 0) {
+        itemsHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="font-size: 0.9em; color: var(--text-secondary);">
+                    Click odds to add to watchlist
+                </div>
+                <button onclick="window.nflProptrack.clearWatchlist()" 
+                        style="background: var(--error-bg); color: var(--error-text); border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.85em;">
+                    Clear All
+                </button>
+            </div>
+        `;
+        
+        itemsHTML += watchlist.map((item, index) => {
+            const propConfig = NFL_PROP_TYPES[item.propType];
+            const propLabel = propConfig?.label || item.propType;
+            const formattedOdds = formatOdds(item.odds);
+            
+            // Format line display
+            let lineDisplay;
+            if (item.propType === 'anytime_td') {
+                lineDisplay = 'Anytime TD';
+            } else if (item.direction === 'over') {
+                lineDisplay = `O ${formattedOdds} (${item.line} ${propLabel})`;
+            } else if (item.direction === 'under') {
+                lineDisplay = `U ${formattedOdds} (${item.line} ${propLabel})`;
+            } else {
+                lineDisplay = `${item.line} ${propLabel}`;
+            }
+            
+            return `
+                <div class="watchlist-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: var(--card-bg); border-radius: 8px; margin-bottom: 8px;">
+                    <div>
+                        <div style="font-weight: bold; color: var(--text-primary);">${item.playerName}</div>
+                        <div style="font-size: 0.85em; color: var(--text-secondary);">${lineDisplay}</div>
+                        ${item.game ? `<div style="font-size: 0.8em; color: var(--text-secondary);">${item.game}</div>` : ''}
+                    </div>
+                    <button onclick="window.nflProptrack.removeFromWatchlist(${index})" 
+                            style="background: #e74c3c; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer; font-size: 14px; line-height: 1;">
+                        ×
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+    
+    // Use same structure as NHL watchlist with proper class names
     container.innerHTML = `
-        <div class="watchlist-header" onclick="toggleNFLWatchlistContent()">
+        <div class="watchlist-header" onclick="window.toggleNFLWatchlist()">
             <div class="watchlist-title">
                 🏈 NFL Watchlist <span id="nfl-watchlist-count">(${watchlist.length})</span>
             </div>
-            <div class="watchlist-toggle">▼</div>
+            <div class="watchlist-toggle">▲</div>
         </div>
-        <div class="watchlist-content" id="nfl-watchlist-content">
-            ${watchlist.length === 0 ? `
-                <div style="padding: 15px; color: var(--text-secondary); text-align: center;">
-                    <p>No items in NFL watchlist</p>
-                    <small>Click on odds to add players to your watchlist</small>
-                </div>
-            ` : `
-                <div id="nfl-watchlist-items">
-                    ${watchlist.map((item, index) => {
-                        const propConfig = NFL_PROP_TYPES[item.propType];
-                        const propLabel = propConfig?.label || item.propType;
-                        const formattedOdds = formatOdds(item.odds);
-                        const directionLabel = item.direction ? (item.direction === 'over' ? 'O' : 'U') : '';
-                        
-                        return `
-                            <div class="watchlist-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid var(--input-border);">
-                                <div>
-                                    <div style="font-weight: bold; color: var(--text-primary);">${item.playerName}</div>
-                                    <div style="font-size: 0.9em; color: var(--text-secondary);">${propLabel} ${directionLabel} ${item.line} (${formattedOdds})</div>
-                                    ${item.game ? `<div style="font-size: 0.8em; color: var(--text-secondary);">${item.game}</div>` : ''}
-                                </div>
-                                <button onclick="window.nflProptrack.removeFromWatchlist(${index})" 
-                                        style="background: #e74c3c; color: white; border: none; border-radius: 4px; padding: 5px 10px; cursor: pointer;">
-                                    ✕
-                                </button>
-                            </div>
-                        `;
-                    }).join('')}
-                </div>
-                <div style="padding: 10px; border-top: 1px solid var(--input-border);">
-                    <button onclick="window.nflProptrack.clearWatchlist()" 
-                            style="width: 100%; background: var(--button-bg); color: var(--button-text); border: 1px solid var(--input-border); border-radius: 4px; padding: 8px; cursor: pointer;">
-                        Clear All
-                    </button>
-                </div>
-            `}
+        <div class="watchlist-content" id="nfl-watchlist-items">
+            ${itemsHTML}
         </div>
     `;
     
     // Add toggle function to window
-    window.toggleNFLWatchlistContent = function() {
-        const content = document.getElementById('nfl-watchlist-content');
-        const toggle = container.querySelector('.watchlist-toggle');
-        if (content) {
-            if (content.style.display === 'none') {
-                content.style.display = 'block';
-                if (toggle) toggle.textContent = '▼';
-            } else {
-                content.style.display = 'none';
-                if (toggle) toggle.textContent = '▲';
+    window.toggleNFLWatchlist = function() {
+        const cont = document.getElementById('nfl-watchlist-container');
+        if (cont && !cont.classList.contains('empty')) {
+            cont.classList.toggle('minimized');
+            const isMinimized = cont.classList.contains('minimized');
+            localStorage.setItem('nfl-watchlistMinimized', isMinimized);
+            // Update toggle arrow
+            const toggle = cont.querySelector('.watchlist-toggle');
+            if (toggle) {
+                toggle.textContent = isMinimized ? '▼' : '▲';
             }
         }
     };
+    
+    // Restore minimized state (only if not empty)
+    if (watchlist.length > 0) {
+        const isMinimized = localStorage.getItem('nfl-watchlistMinimized') === 'true';
+        if (isMinimized) {
+            container.classList.add('minimized');
+            const toggle = container.querySelector('.watchlist-toggle');
+            if (toggle) toggle.textContent = '▼';
+        }
+    }
 }
 
 /**
@@ -149,6 +188,6 @@ function showNFLWatchlistNotification(message) {
 export function toggleNFLWatchlist() {
     const container = document.getElementById('nfl-watchlist-container');
     if (container) {
-        container.classList.toggle('hidden');
+        container.classList.toggle('minimized');
     }
 }
