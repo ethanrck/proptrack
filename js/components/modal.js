@@ -180,57 +180,92 @@ export function showGameLog(playerId) {
     // Build H2H section if we have next opponent
     let h2hSection = '';
     if (nextOpponent) {
-        const h2hStats = calculateH2HStats(games, nextOpponent.abbrev);
+        const h2hStats = calculateH2HStats(games, nextOpponent.abbrev, statType, lineValue, isGoalie);
         if (h2hStats) {
-            h2hSection = renderH2HSection(h2hStats, nextOpponent);
+            h2hSection = renderH2HSection(h2hStats, nextOpponent, lineValue);
         }
     }
     
-    // Build Available Lines section
+    // Build Available Lines section as table
     let availableLinesSection = '';
     if (playerOdds?.[statType]?.length > 0) {
         const allLines = playerOdds[statType];
         const escapedName = escapeName(name);
+        const allGames = gameLog.gameLog.slice(0, 10); // Use last 10 games for hit rate calc
+        
+        // Calculate hit rate for each line
+        const linesWithHitRate = allLines.map(l => {
+            let hits = 0;
+            allGames.forEach(g => {
+                const statValue = getStatValue(g, statType, isGoalie);
+                if (statValue > l.line) hits++;
+            });
+            const lineHitRate = allGames.length > 0 ? ((hits / allGames.length) * 100).toFixed(1) : 0;
+            return { ...l, hitRate: lineHitRate, hits, total: allGames.length };
+        });
+        
+        const tableRows = linesWithHitRate.map(l => {
+            const overOdds = l.overOdds != null ? formatOdds(l.overOdds) : null;
+            const underOdds = l.underOdds != null ? formatOdds(l.underOdds) : null;
+            const game = l.game || 'N/A';
+            const gameTime = l.gameTime || '';
+            const bookmaker = l.bookmaker || 'Unknown';
+            const isAnytime = l.type === 'anytime_scorer';
+            const hrColorClass = getHitRateColor(parseFloat(l.hitRate));
+            
+            let oddsHtml = '';
+            if (isAnytime) {
+                oddsHtml = `<span onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${l.line}, ${l.overOdds || l.underOdds}, '${game}', '${gameTime}')" 
+                    style="background: #e67e22; color: white; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-weight: 600; font-size: 0.85em;">
+                    Anytime ${formatOdds(l.overOdds || l.underOdds)}
+                </span>`;
+            } else {
+                if (overOdds) {
+                    oddsHtml += `<span onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${l.line}, ${l.overOdds}, '${game}', '${gameTime}', 'over')" 
+                        style="border: 2px solid #27ae60; color: #27ae60; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-weight: 600; font-size: 0.85em; margin-right: 6px;">
+                        O ${overOdds}
+                    </span>`;
+                }
+                if (underOdds) {
+                    oddsHtml += `<span onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${l.line}, ${l.underOdds}, '${game}', '${gameTime}', 'under')" 
+                        style="border: 2px solid #e74c3c; color: #e74c3c; padding: 4px 10px; border-radius: 15px; cursor: pointer; font-weight: 600; font-size: 0.85em;">
+                        U ${underOdds}
+                    </span>`;
+                }
+            }
+            
+            return `
+                <tr style="border-bottom: 1px solid var(--input-border);">
+                    <td style="padding: 12px; font-weight: bold; font-size: 1.2em; color: white;">${isAnytime ? 'AG' : l.line}</td>
+                    <td style="padding: 12px;">${oddsHtml}</td>
+                    <td style="padding: 12px; color: var(--text-secondary);">${bookmaker}</td>
+                    <td style="padding: 12px; font-weight: bold;" class="${hrColorClass}">${l.hitRate}%</td>
+                    <td style="padding: 12px; color: var(--text-secondary);">(${l.hits}/${l.total})</td>
+                </tr>
+            `;
+        }).join('');
         
         availableLinesSection = `
             <div style="background: var(--container-bg); border: 1px solid var(--input-border); border-radius: 8px; margin: 15px 0; overflow: hidden;">
                 <div onclick="window.proptrack.toggleAvailableLines(this)" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; cursor: pointer; user-select: none;">
-                    <span style="font-weight: 600;">Available Lines (${allLines.length})</span>
-                    <span style="color: var(--text-secondary); font-size: 0.85em;">Click any pill to add to watchlist</span>
+                    <span style="font-weight: 600; color: white;">Available Lines (${allLines.length})</span>
                     <span class="collapse-arrow" style="transition: transform 0.2s;">▼</span>
                 </div>
-                <div class="available-lines-content" style="display: none; padding: 15px; border-top: 1px solid var(--input-border);">
-                    <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        ${allLines.map(l => {
-                            const overOdds = l.overOdds != null ? formatOdds(l.overOdds) : null;
-                            const underOdds = l.underOdds != null ? formatOdds(l.underOdds) : null;
-                            const game = l.game || 'N/A';
-                            const gameTime = l.gameTime || '';
-                            const isAnytime = l.type === 'anytime_scorer';
-                            
-                            if (isAnytime) {
-                                return `<span onclick="window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${l.line}, ${l.overOdds || l.underOdds}, '${game}', '${gameTime}')" 
-                                    style="background: #e67e22; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 0.9em;">
-                                    Anytime ${formatOdds(l.overOdds || l.underOdds)}
-                                </span>`;
-                            }
-                            
-                            let html = '';
-                            if (overOdds) {
-                                html += `<span onclick="window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${l.line}, ${l.overOdds}, '${game}', '${gameTime}', 'over')" 
-                                    style="background: #27ae60; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 0.9em;">
-                                    O${l.line} ${overOdds}
-                                </span>`;
-                            }
-                            if (underOdds) {
-                                html += `<span onclick="window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${l.line}, ${l.underOdds}, '${game}', '${gameTime}', 'under')" 
-                                    style="background: #e74c3c; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 600; font-size: 0.9em;">
-                                    U${l.line} ${underOdds}
-                                </span>`;
-                            }
-                            return html;
-                        }).join('')}
-                    </div>
+                <div class="available-lines-content" style="display: none; border-top: 1px solid var(--input-border);">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--input-border); background: var(--card-bg);">
+                                <th style="padding: 10px 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Line</th>
+                                <th style="padding: 10px 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Odds</th>
+                                <th style="padding: 10px 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Bookmaker</th>
+                                <th style="padding: 10px 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Hit Rate</th>
+                                <th style="padding: 10px 12px; text-align: left; color: var(--text-secondary); font-weight: 600;">Record</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         `;
@@ -316,26 +351,37 @@ export function showGameLog(playerId) {
     const modal = document.getElementById('gameLogModal');
     const modalContent = document.getElementById('modalContent');
     
+    // Get season stat total
+    let seasonStatLabel = isGoalie ? 'Season Saves' : `Season ${statType.charAt(0).toUpperCase() + statType.slice(1)}`;
+    let seasonStatValue = 0;
+    if (isGoalie) {
+        seasonStatValue = player.saves || 0;
+    } else if (statType === 'points') {
+        seasonStatValue = player.points || 0;
+    } else if (statType === 'goals') {
+        seasonStatValue = player.goals || 0;
+    } else if (statType === 'assists') {
+        seasonStatValue = player.assists || 0;
+    } else if (statType === 'shots') {
+        seasonStatValue = player.shots || 0;
+    }
+    
     modalContent.innerHTML = `
         <h2 style="color: white;">${name}</h2>
-        <p style="color: var(--text-secondary);">${player.teamAbbrevs} | GP: ${player.gamesPlayed}</p>
+        <p style="color: var(--text-secondary);">${player.teamAbbrevs} - ${isGoalie ? 'G' : player.positionCode || 'N/A'}</p>
         
         <div class="summary-stats">
             <div class="summary-card">
-                <div class="summary-label">Current Line</div>
-                <div class="summary-value" style="color: #e67e22;">${lineValue}</div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-label">Hit Rate (Last ${games.length})</div>
+                <div class="summary-label">Hit Rate</div>
                 <div class="summary-value ${colorClass}">${hitRate}%</div>
             </div>
             <div class="summary-card">
-                <div class="summary-label">Average ${isGoalie ? 'Saves' : statType.charAt(0).toUpperCase() + statType.slice(1)}</div>
-                <div class="summary-value">${avgValue}</div>
+                <div class="summary-label">Hits</div>
+                <div class="summary-value">${hits}/${games.length}</div>
             </div>
             <div class="summary-card">
-                <div class="summary-label">Record vs Line</div>
-                <div class="summary-value">${hits}/${games.length}</div>
+                <div class="summary-label">${seasonStatLabel}</div>
+                <div class="summary-value">${seasonStatValue}</div>
             </div>
         </div>
         
@@ -378,11 +424,17 @@ export function showGameLog(playerId) {
 /**
  * Calculate head-to-head stats against an opponent
  */
-function calculateH2HStats(games, opponent) {
+function calculateH2HStats(games, opponent, statType, lineValue, isGoalie) {
     const h2hGames = games.filter(game => game.opponentAbbrev === opponent);
     if (h2hGames.length === 0) return null;
     
-    const isGoalie = h2hGames[0].shotsAgainst !== undefined;
+    // Calculate hit rate for H2H games
+    let h2hHits = 0;
+    h2hGames.forEach(g => {
+        const statValue = getStatValue(g, statType, isGoalie);
+        if (statValue > lineValue) h2hHits++;
+    });
+    const hitRate = ((h2hHits / h2hGames.length) * 100).toFixed(1);
     
     if (isGoalie) {
         let totalSaves = 0, totalShotsAgainst = 0, totalGoalsAgainst = 0;
@@ -406,6 +458,7 @@ function calculateH2HStats(games, opponent) {
             avgSavePct: ((totalSaves / totalShotsAgainst) * 100).toFixed(1),
             wins,
             losses,
+            hitRate,
             isGoalie: true,
             opponentAbbrev: opponent
         };
@@ -428,6 +481,7 @@ function calculateH2HStats(games, opponent) {
             totalGoals,
             totalAssists,
             totalPoints,
+            hitRate,
             isGoalie: false
         };
     }
@@ -436,14 +490,21 @@ function calculateH2HStats(games, opponent) {
 /**
  * Render H2H section HTML
  */
-function renderH2HSection(stats, opponent) {
+function renderH2HSection(stats, opponent, lineValue) {
     const oppName = opponent.name;
+    const hitRateColorClass = getHitRateColor(parseFloat(stats.hitRate || 0));
     
     if (stats.isGoalie) {
         return `
-            <div class="h2h-section">
-                <div class="h2h-title">🆚 Head-to-Head vs ${oppName} (${stats.games} games)</div>
+            <div style="background: var(--card-bg); border: 2px solid var(--card-hover-border); border-radius: 10px; padding: 15px; margin: 15px 0;">
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <span style="color: #e67e22; font-weight: bold;">🏒 Head-to-Head vs ${oppName} (Last ${stats.games} games)</span>
+                </div>
                 <div class="h2h-stats">
+                    <div class="h2h-stat">
+                        <div class="h2h-stat-label">Games</div>
+                        <div class="h2h-stat-value">${stats.games}</div>
+                    </div>
                     <div class="h2h-stat">
                         <div class="h2h-stat-label">Avg Saves</div>
                         <div class="h2h-stat-value">${stats.avgSaves}</div>
@@ -460,14 +521,26 @@ function renderH2HSection(stats, opponent) {
                         <div class="h2h-stat-label">Record</div>
                         <div class="h2h-stat-value">${stats.wins}-${stats.losses}</div>
                     </div>
+                    ${stats.hitRate !== undefined ? `
+                    <div class="h2h-stat">
+                        <div class="h2h-stat-label">Hit Rate vs ${lineValue}</div>
+                        <div class="h2h-stat-value ${hitRateColorClass}">${stats.hitRate}%</div>
+                    </div>
+                    ` : ''}
                 </div>
             </div>
         `;
     } else {
         return `
-            <div class="h2h-section">
-                <div class="h2h-title">🆚 Head-to-Head vs ${oppName} (${stats.games} games)</div>
+            <div style="background: var(--card-bg); border: 2px solid var(--card-hover-border); border-radius: 10px; padding: 15px; margin: 15px 0;">
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <span style="color: #e67e22; font-weight: bold;">🏒 Head-to-Head vs ${oppName} (Last ${stats.games} games)</span>
+                </div>
                 <div class="h2h-stats">
+                    <div class="h2h-stat">
+                        <div class="h2h-stat-label">Games</div>
+                        <div class="h2h-stat-value">${stats.games}</div>
+                    </div>
                     <div class="h2h-stat">
                         <div class="h2h-stat-label">Avg Goals</div>
                         <div class="h2h-stat-value">${stats.avgGoals}</div>
@@ -484,6 +557,12 @@ function renderH2HSection(stats, opponent) {
                         <div class="h2h-stat-label">Avg Shots</div>
                         <div class="h2h-stat-value">${stats.avgShots}</div>
                     </div>
+                    ${stats.hitRate !== undefined ? `
+                    <div class="h2h-stat">
+                        <div class="h2h-stat-label">Hit Rate vs ${lineValue}</div>
+                        <div class="h2h-stat-value ${hitRateColorClass}">${stats.hitRate}%</div>
+                    </div>
+                    ` : ''}
                 </div>
             </div>
         `;
