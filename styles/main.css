@@ -249,6 +249,7 @@ h1 {
     border: 2px solid transparent;
     display: flex;
     flex-direction: column;
+    height: 230px;
 }
 
 .player-card:hover {
@@ -264,8 +265,13 @@ h1 {
     gap: 10px;
 }
 
+.player-info {
+    flex: 1;
+    min-width: 0;
+}
+
 .player-name {
-    font-size: 1.15em;
+    font-size: 1.35em;
     font-weight: bold;
     color: var(--text-primary);
     transition: color 0.3s ease;
@@ -275,7 +281,7 @@ h1 {
 
 .player-team {
     color: var(--text-secondary);
-    font-size: 0.9em;
+    font-size: 1em;
     margin-top: 2px;
     transition: color 0.3s ease;
 }
@@ -284,7 +290,7 @@ h1 {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
-    margin-top: 12px;
+    margin-top: auto;
 }
 
 .stat {
@@ -292,58 +298,74 @@ h1 {
 }
 
 .stat-label {
-    font-size: 0.8em;
+    font-size: 0.95em;
     color: var(--text-secondary);
     transition: color 0.3s ease;
 }
 
 .stat-value {
-    font-size: 1.3em;
+    font-size: 1.6em;
     font-weight: bold;
     color: var(--text-primary);
     transition: color 0.3s ease;
 }
 
-/* Odds Display Box - Uniform size */
+/* Odds Display Box - For O/U lines */
 .odds-box {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    line-height: 1.2;
+    line-height: 1.1;
     gap: 2px;
     background: var(--warning-bg);
-    padding: 10px 12px;
+    padding: 8px 11px;
     border-radius: 6px;
-    min-width: 90px;
-    min-height: 80px;
-    font-size: 0.9em;
-    font-weight: 600;
-    color: #e67e22;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    margin-left: auto;
 }
 
 .odds-box:hover {
     transform: scale(1.02);
 }
 
-/* Legacy odds-line for anytime goal styling */
+/* Anytime Goal box */
+.odds-box-anytime {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: #e67e22;
+    background: var(--warning-bg);
+    padding: 9px 13px;
+    border-radius: 6px;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    margin-left: auto;
+}
+
+.odds-box-anytime:hover {
+    background: #e67e22;
+    color: white;
+    transform: scale(1.02);
+}
+
+/* Legacy odds-line - keeping for backwards compatibility */
 .odds-line {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.9em;
+    font-size: 0.95em;
     font-weight: 600;
     color: #e67e22;
     background: var(--warning-bg);
-    padding: 10px 12px;
+    padding: 9px 13px;
     border-radius: 6px;
-    min-width: 90px;
-    min-height: 80px;
     white-space: nowrap;
     cursor: pointer;
     transition: all 0.2s ease;
+    margin-left: auto;
 }
 
 .odds-line:hover {
@@ -354,16 +376,20 @@ h1 {
 
 /* Hit Rate Display */
 .hit-rate-display {
-    margin-top: 10px;
-    padding: 10px;
+    margin-top: 12px;
+    padding: 12px;
     background: var(--container-bg);
     border-radius: 5px;
     text-align: center;
     transition: all 0.3s ease;
 }
 
+.hit-rate-display .stat-label {
+    font-size: 0.85em;
+}
+
 .hit-rate-value {
-    font-size: 1.5em;
+    font-size: 1.6em;
     font-weight: bold;
 }
 

@@ -70,17 +70,17 @@ export function renderPlayerCard(player, selectedLine) {
             if (statType === 'goals' && oddsInfo.type === 'anytime_scorer') {
                 const formattedOdds = formatOdds(price);
                 oddsDisplay = `
-                    <div class="odds-box" onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${line}, ${price}, '${game}', '${gameTime}')">
+                    <div class="odds-box-anytime" onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${line}, ${price}, '${game}', '${gameTime}')">
                         Anytime Goal ${formattedOdds}
                     </div>
                 `;
             } else {
                 oddsDisplay = `
                     <div class="odds-box">
-                        <div style="font-weight: bold; font-size: 1.5em; color: #e67e22; pointer-events: none;">${line}</div>
+                        <div style="font-weight: bold; font-size: 1.45em; color: #e67e22; pointer-events: none;">${line}</div>
                         ${overOdds != null ? `
                             <div onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${line}, ${overOdds}, '${game}', '${gameTime}', 'over')" 
-                                 style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" 
+                                 style="color: #27ae60; font-size: 1.05em; cursor: pointer; padding: 1px 6px; border-radius: 3px; transition: all 0.2s;" 
                                  onmouseover="this.style.background='#27ae60'; this.style.color='white';" 
                                  onmouseout="this.style.background=''; this.style.color='#27ae60';">
                                 O ${formatOdds(overOdds)}
@@ -88,7 +88,7 @@ export function renderPlayerCard(player, selectedLine) {
                         ` : ''}
                         ${underOdds != null ? `
                             <div onclick="event.stopPropagation(); window.proptrack.addToWatchlist(${player.playerId}, '${escapedName}', '${statType}', ${line}, ${underOdds}, '${game}', '${gameTime}', 'under')" 
-                                 style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" 
+                                 style="color: #e74c3c; font-size: 1.05em; cursor: pointer; padding: 1px 6px; border-radius: 3px; transition: all 0.2s;" 
                                  onmouseover="this.style.background='#e74c3c'; this.style.color='white';" 
                                  onmouseout="this.style.background=''; this.style.color='#e74c3c';">
                                 U ${formatOdds(underOdds)}
@@ -102,8 +102,8 @@ export function renderPlayerCard(player, selectedLine) {
     
     return `
         <div class="player-card" onclick="window.proptrack.showGameLog(${player.playerId})">
-            <div class="player-header" style="align-items: center;">
-                <div style="flex: 1;">
+            <div class="player-header">
+                <div class="player-info">
                     <div class="player-name">${name}</div>
                     <div class="player-team">${team} - ${position} | GP: ${gamesPlayed}</div>
                 </div>

@@ -194,12 +194,15 @@ export async function displayTeams() {
         return `
             <div class="player-card" onclick="window.proptrack.showTeamLog('${escapedTeamName}', '${game}')">
                 <div class="player-header">
-                    <div class="player-name" style="max-width: 60%; word-wrap: break-word;">${teamName}</div>
-                    <div style="display: flex; flex-direction: column; align-items: center; line-height: 1.2; gap: 2px; background: var(--warning-bg); padding: 8px; border-radius: 6px;">
-                        <div style="font-weight: bold; font-size: 1.5em; color: #e67e22; pointer-events: none;">${displayLine.line}</div>
+                    <div class="player-info">
+                        <div class="player-name">${teamName}</div>
+                        <div class="player-team">${game}</div>
+                    </div>
+                    <div class="odds-box">
+                        <div style="font-weight: bold; font-size: 1.45em; color: #e67e22; pointer-events: none;">${displayLine.line}</div>
                         ${overOdds != null ? `
                             <div onclick="event.stopPropagation(); window.proptrack.addToWatchlist('team-${createSafeId(teamName)}', '${escapedTeamName}', 'team_totals', ${displayLine.line}, ${displayLine.overOdds}, '${game}', '${gameTime}', 'over')" 
-                                 style="color: #27ae60; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" 
+                                 style="color: #27ae60; font-size: 1.05em; cursor: pointer; padding: 1px 6px; border-radius: 3px; transition: all 0.2s;" 
                                  onmouseover="this.style.background='#27ae60'; this.style.color='white';" 
                                  onmouseout="this.style.background=''; this.style.color='#27ae60';">
                                 O ${overOdds}
@@ -207,7 +210,7 @@ export async function displayTeams() {
                         ` : ''}
                         ${underOdds != null ? `
                             <div onclick="event.stopPropagation(); window.proptrack.addToWatchlist('team-${createSafeId(teamName)}', '${escapedTeamName}', 'team_totals', ${displayLine.line}, ${displayLine.underOdds}, '${game}', '${gameTime}', 'under')" 
-                                 style="color: #e74c3c; font-size: 1.1em; cursor: pointer; padding: 2px 8px; border-radius: 3px; transition: all 0.2s;" 
+                                 style="color: #e74c3c; font-size: 1.05em; cursor: pointer; padding: 1px 6px; border-radius: 3px; transition: all 0.2s;" 
                                  onmouseover="this.style.background='#e74c3c'; this.style.color='white';" 
                                  onmouseout="this.style.background=''; this.style.color='#e74c3c';">
                                 U ${underOdds}
@@ -215,7 +218,11 @@ export async function displayTeams() {
                         ` : ''}
                     </div>
                 </div>
-                <div class="player-team">${game}</div>
+                <div class="player-stats">
+                    <div class="stat"></div>
+                    <div class="stat"></div>
+                    <div class="stat"></div>
+                </div>
                 <div class="hit-rate-display" id="hitrate-${teamId}">
                     <div class="stat-label">Loading hit rate...</div>
                 </div>
