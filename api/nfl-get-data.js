@@ -1,25 +1,21 @@
 // api/nfl-get-data.js - Vercel serverless function to get NFL data from blob storage
 
-import { list, get } from '@vercel/blob';
+import { list } from '@vercel/blob';
 
-export const config = {
-    runtime: 'edge',
-};
-
-export default async function handler(request) {
+export default async function handler(request, response) {
     try {
         // Try to get cached data from blob storage
-        const blobUrl = process.env.NFL_BLOB_URL || 'nfl-data.json';
+        const { blobs } = await list({ prefix: 'nfl-data' });
         
         let data = null;
         
-        try {
-            const response = await fetch(blobUrl);
-            if (response.ok) {
-                data = await response.json();
+        if (blobs.length > 0) {
+            // Get the most recent blob
+            const latestBlob = blobs[0];
+            const blobResponse = await fetch(latestBlob.url);
+            if (blobResponse.ok) {
+                data = await blobResponse.json();
             }
-        } catch (e) {
-            console.log('No cached NFL data found, returning empty state');
         }
         
         // If no cached data, return empty structure
@@ -33,23 +29,14 @@ export default async function handler(request) {
             };
         }
         
-        return new Response(JSON.stringify(data), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
-            },
-        });
+        response.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+        return response.status(200).json(data);
+        
     } catch (error) {
         console.error('Error fetching NFL data:', error);
-        return new Response(JSON.stringify({ 
+        return response.status(500).json({ 
             error: 'Failed to fetch NFL data',
             message: error.message 
-        }), {
-            status: 500,
-            headers: {
-                'Content-Type': 'application/json',
-            },
         });
     }
 }

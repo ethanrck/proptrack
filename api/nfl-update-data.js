@@ -15,11 +15,11 @@ const NFL_ODDS_MARKETS = [
     'player_anytime_td'
 ];
 
-export default async function handler(request) {
+export default async function handler(request, response) {
     // Verify cron secret for security
-    const authHeader = request.headers.get('authorization');
+    const authHeader = request.headers['authorization'] || request.headers['Authorization'];
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-        return new Response('Unauthorized', { status: 401 });
+        return response.status(401).send('Unauthorized');
     }
 
     console.log('Starting NFL data update...');
@@ -31,12 +31,9 @@ export default async function handler(request) {
         
         if (todaysGames.length === 0) {
             console.log('No NFL games today, skipping update');
-            return new Response(JSON.stringify({ 
+            return response.status(200).json({ 
                 message: 'No NFL games today',
                 gamesFound: 0 
-            }), {
-                status: 200,
-                headers: { 'Content-Type': 'application/json' }
             });
         }
         
@@ -76,24 +73,18 @@ export default async function handler(request) {
         
         console.log('NFL data update complete');
         
-        return new Response(JSON.stringify({
+        return response.status(200).json({
             success: true,
             gamesFound: todaysGames.length,
             playersFound: players.length,
             blobUrl: blob.url
-        }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
         });
         
     } catch (error) {
         console.error('Error updating NFL data:', error);
-        return new Response(JSON.stringify({ 
+        return response.status(500).json({ 
             error: 'Failed to update NFL data',
             message: error.message 
-        }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
         });
     }
 }
